@@ -56,16 +56,30 @@ class CrusoeUpstream:
         return r.json()
 
 
-# Keys whose string values are protocol identifiers, not content. A value is skipped only when it is a
-# direct string child of such a key AND looks like an identifier; anything else is inspected (deny by default).
-_SKIP_KEYS = {"model", "role", "type", "id", "tool_call_id", "finish_reason", "object"}
-_IDENT = re.compile(r"^[A-Za-z0-9_.:/-]{1,64}$")
+# Protocol strings that may pass through untouched. Deny by default: a value is skipped only when its key is
+# a known protocol key AND the value matches that key's strict allowlist AND no regex rule fires on it.
+_ROLE = {"system", "user", "assistant", "tool", "developer", "function"}
+_TYPE = {"text", "input_text", "output_text", "image_url", "input_image", "function", "tool_result", "tool_use", "json_object", "json_schema", "chat.completion", "chat.completion.chunk", "list", "model"}
+_FINISH = {"stop", "length", "tool_calls", "content_filter", "function_call"}
+_IDENT = re.compile(r"\A[A-Za-z][A-Za-z0-9_.:/-]{0,63}\Z")   # must start with a letter
+
+
+def _protocol_ok(key: Optional[str], value: str) -> bool:
+    if key == "role":
+        return value in _ROLE
+    if key in ("type", "object"):
+        return value in _TYPE
+    if key == "finish_reason":
+        return value in _FINISH
+    if key in ("model", "id", "tool_call_id"):
+        return bool(_IDENT.match(value))
+    return False
 
 
 def _walk(session, node: Any, key: Optional[str] = None) -> Any:
     if isinstance(node, str):
-        if key in _SKIP_KEYS and _IDENT.match(node) and not session.guard.scan(node, use_classifier=False):
-            return node  # identifier-shaped AND no rule fires: safe to pass through untouched
+        if _protocol_ok(key, node) and not session.guard.scan(node, use_classifier=False):
+            return node
         return session.redact(node).text
     if isinstance(node, list):
         return [_walk(session, x) for x in node]  # the parent key does not carry into containers

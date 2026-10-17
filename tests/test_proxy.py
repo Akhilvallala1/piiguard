@@ -94,3 +94,15 @@ def test_protocol_key_skip_cannot_be_abused_to_smuggle_pii():
     for v in ("912-34-5678", "923-45-6789", "934-56-7890"):
         assert v not in sent, v
     assert up.seen[0]["messages"][0]["role"] == "user" and up.seen[0]["model"] == "m"
+
+
+def test_ids_must_start_with_a_letter_and_roles_must_be_known():
+    up = FakeUpstream()
+    client = TestClient(create_app(upstream=up, token="t"))
+    msgs = [{"role": "user", "content": "hi", "tool_calls": [{"id": "call_ok1", "type": "function", "function": {"name": "f", "arguments": "{}"}}, {"id": "393132333435363738", "type": "function", "function": {"name": "f", "arguments": "{}"}}]},
+            {"role": "nine one two three four", "content": "x"}]
+    client.post("/v1/chat/completions", headers={"Authorization": "Bearer t"}, json={"model": "m", "messages": msgs})
+    sent = up.seen[0]
+    assert sent["messages"][0]["tool_calls"][0]["id"] == "call_ok1"
+    assert sent["messages"][0]["tool_calls"][1]["id"] != "393132333435363738"   # digits-only id is not trusted
+    assert sent["messages"][1]["role"] != "nine one two three four"              # unknown role is inspected, not trusted
