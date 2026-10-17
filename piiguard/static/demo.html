@@ -165,4 +165,5 @@ document.querySelectorAll('button[data-fill]').forEach(b => b.addEventListener('
 loadData(); loadFeed(); setInterval(loadFeed, 2500);
 const io = new IntersectionObserver(es => es.forEach((e,i) => { if (e.isIntersecting){ e.target.style.transitionDelay = (Math.min(i,6)*70)+'ms'; e.target.classList.add('in'); io.unobserve(e.target);} }), {threshold:.08});
 document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+setTimeout(() => document.querySelectorAll('.reveal').forEach(el => el.classList.add('in')), 1200);
 </script></body></html>
