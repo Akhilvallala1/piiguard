@@ -117,10 +117,12 @@ footer{margin-top:64px;color:var(--mute);font-size:14px;max-width:70ch}
 <footer class="reveal">Built on 2026-10-17 at The Recursive Agents Hackathon. Crusoe Managed Inference · NVIDIA Nemotron 3.5 Lightning and 3 Super · NemoClaw / OpenShell · You.com · github.com/Akhilvallala1/piiguard</footer>
 </main>
 <script>
-const TOKEN = new URLSearchParams(location.search).get('token') || localStorage.getItem('piiguard_token') || '';
-if (TOKEN) try { localStorage.setItem('piiguard_token', TOKEN) } catch (e) {}
+const _q = new URLSearchParams(location.search);
+let TOKEN = _q.get('token') || '';
+try { if (TOKEN) sessionStorage.setItem('piiguard_token', TOKEN); else TOKEN = sessionStorage.getItem('piiguard_token') || ''; } catch (e) {}
+if (_q.has('token')) history.replaceState(null, '', location.pathname);   // never leave the token in the address bar or history
 const H = {'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json'};
-const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const tokify = s => esc(s).replace(/\[PII_[A-Z_]+_\d+\]/g, m => `<span class="tok">${m}</span>`);
 function markLeaks(text, spans){ let h = esc(text); for (const sp of spans){ h = h.split(esc(sp.value)).join(`<span class="leak">${esc(sp.value)}</span>`);} return h; }
 
@@ -135,13 +137,13 @@ async function loadData(){
   document.getElementById('rulesub').textContent = `regex rules in guard/rules.yaml · tags ${d.tags.join(', ')}`;
   document.getElementById('rulenames').textContent = d.rules.names.join(' · ');
   document.getElementById('bench').innerHTML = '<tr><th>system</th><th>leak</th><th>false pos.</th><th>ms</th></tr>' + d.bench.map(r => `<tr class="${/piiguard gen-14/.test(r.system)?'us':''}"><td>${esc(r.system.replace(' (no content layer)','').replace(' (default recognizers)',' default').replace(' (scoped: SSN, email, phone, card)',' scoped').replace(' (hand-written rules)','').replace(' rules (self-improved, no model call)',' rules').replace(' rules + Nemotron 3.5 Lightning classifier',' + classifier'))}</td><td>${(r.leak_rate*100).toFixed(1)}%</td><td>${(r.fp_rate*100).toFixed(0)}%</td><td>${Math.round(r.ms_per_text||0)}</td></tr>`).join('');
-  document.getElementById('hist').innerHTML = '<tr><th>gen</th><th>kept</th><th>validation leak</th><th>false pos.</th><th>why</th></tr>' + d.history.map(r => `<tr class="${r.accepted?'acc':'rej'}"><td>${r.gen}</td><td>${r.accepted?'yes':'no'}</td><td>${(r.val_before.leak_rate*100).toFixed(0)}% → ${(r.val_after.leak_rate*100).toFixed(0)}%</td><td>${(r.fp_after.fp_rate*100).toFixed(0)}%</td><td>${esc((r.accepted ? r.rationale : r.reason.replace('rejected: ','')) || '').slice(0,90)}</td></tr>`).join('');
+  document.getElementById('hist').innerHTML = '<tr><th>gen</th><th>kept</th><th>validation leak</th><th>false pos.</th><th>why</th></tr>' + d.history.map(r => `<tr class="${r.accepted?'acc':'rej'}"><td>${esc(r.gen)}</td><td>${r.accepted?'yes':'no'}</td><td>${(r.val_before.leak_rate*100).toFixed(0)}% → ${(r.val_after.leak_rate*100).toFixed(0)}%</td><td>${(r.fp_after.fp_rate*100).toFixed(0)}%</td><td>${esc((r.accepted ? r.rationale : r.reason.replace('rejected: ','')) || '').slice(0,90)}</td></tr>`).join('');
 }
 async function loadFeed(){
   const r = await fetch('/events', {headers: H}); if (!r.ok) return;
   const ev = await r.json(); const f = document.getElementById('feed');
   if (!ev.length){ f.innerHTML = '<div class="empty">nothing has left yet</div>'; return; }
-  f.innerHTML = ev.slice(-40).reverse().map(e => `<div><span class="ts">${e.ts}</span><span class="n">${e.redactions}</span> redacted ${e.types.length? '('+e.types.join(', ')+')':''} via ${e.route} → ${tokify(e.preview.replace(/^"|"$/g,''))}</div>`).join('');
+  f.innerHTML = ev.slice(-40).reverse().map(e => `<div><span class="ts">${esc(e.ts)}</span><span class="n">${esc(e.redactions)}</span> redacted ${e.types.length? '('+e.types.map(esc).join(', ')+')':''} via ${esc(e.route)} → ${tokify(String(e.preview).replace(/^"|"$/g,''))}</div>`).join('');
 }
 async function run(){
   const btn = document.getElementById('go'); btn.disabled = true; btn.querySelector('span').textContent = 'Sending…';

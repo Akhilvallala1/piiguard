@@ -8,6 +8,7 @@ import threading
 from typing import Callable, Optional
 
 _FENCE = re.compile(r"^```[a-zA-Z]*\s*|\s*```$", re.MULTILINE)
+_TYPE_OK = re.compile(r"^[a-z0-9_]{1,32}$")
 
 
 class LLMClassifier:
@@ -52,5 +53,8 @@ def _parse_spans(raw: str) -> list[dict]:
     out = []
     for s in data.get("spans", []) or []:
         if isinstance(s, dict):
-            out.append({"text": str(s.get("text", "")), "type": str(s.get("type", "other")).lower().replace(" ", "_")})
+            t = str(s.get("type", "other")).strip().lower().replace(" ", "_").replace("-", "_")
+            if not _TYPE_OK.match(t):
+                t = "other"  # the model's label is untrusted output; never let it carry markup into logs or pages
+            out.append({"text": str(s.get("text", "")), "type": t})
     return out
