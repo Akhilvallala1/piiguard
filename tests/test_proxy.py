@@ -83,3 +83,14 @@ def test_tokens_are_unique_across_messages_and_restore_is_correct():
     sent = [m["content"] for m in up.seen[0]["messages"]]
     assert sent == ["A [PII_SSN_1]", "B [PII_SSN_2]"]
     assert r.json()["choices"][0]["message"]["content"] == "A 912-34-5678 | B 923-45-6789"
+
+
+def test_protocol_key_skip_cannot_be_abused_to_smuggle_pii():
+    up = FakeUpstream()
+    client = TestClient(create_app(upstream=up, token="t"))
+    msgs = [{"role": "user", "content": "hi", "metadata": {"id": "912-34-5678"}, "type": ["923-45-6789"], "tool_call_id": "call 934-56-7890"}]
+    client.post("/v1/chat/completions", headers={"Authorization": "Bearer t"}, json={"model": "m", "messages": msgs})
+    sent = json.dumps(up.seen[0])
+    for v in ("912-34-5678", "923-45-6789", "934-56-7890"):
+        assert v not in sent, v
+    assert up.seen[0]["messages"][0]["role"] == "user" and up.seen[0]["model"] == "m"

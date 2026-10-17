@@ -5,6 +5,7 @@ from __future__ import annotations
 import hmac
 import json
 import os
+import re
 import secrets
 import sys
 import time
@@ -55,15 +56,19 @@ class CrusoeUpstream:
         return r.json()
 
 
-# Keys whose string values are protocol, not content. Everything else is inspected (deny by default).
+# Keys whose string values are protocol identifiers, not content. A value is skipped only when it is a
+# direct string child of such a key AND looks like an identifier; anything else is inspected (deny by default).
 _SKIP_KEYS = {"model", "role", "type", "id", "tool_call_id", "finish_reason", "object"}
+_IDENT = re.compile(r"^[A-Za-z0-9_.:/-]{1,64}$")
 
 
 def _walk(session, node: Any, key: Optional[str] = None) -> Any:
     if isinstance(node, str):
-        return node if key in _SKIP_KEYS else session.redact(node).text
+        if key in _SKIP_KEYS and _IDENT.match(node):
+            return node
+        return session.redact(node).text
     if isinstance(node, list):
-        return [_walk(session, x, key) for x in node]
+        return [_walk(session, x) for x in node]  # the parent key does not carry into containers
     if isinstance(node, dict):
         return {k: _walk(session, v, k) for k, v in node.items()}
     return node
