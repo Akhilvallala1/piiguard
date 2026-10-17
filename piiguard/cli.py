@@ -148,6 +148,41 @@ def cmd_bench(a):
             print(f"| {t} | " + " | ".join(f"{r['by_technique'].get(t, 0):.0%}" for r in rows) + " |")
 
 
+def cmd_prune(a):
+    """Unlearning step: remove rules whose removal changes nothing on val + clean; commit as its own generation."""
+    from .coach.gate import GuardRepo
+    from .eval.harness import CLEAN_SAMPLES, evaluate_attacks
+    from .pii.guard import Guard
+    from .prune import prune_rules
+    sets = _load_sets(Path(a.data))
+    repo = GuardRepo(ROOT)
+    rules_yaml, prompt_md = repo.current_files()
+    # Ablate against everything the coach is allowed to see (train + val); held-out stays blind and is only a tripwire.
+    res = prune_rules(rules_yaml, sets["train"] + sets["val"], CLEAN_SAMPLES, protect=("ssn", "email", "phone_us", "credit_card"))
+    for n in res.notes:
+        print("  " + n, file=sys.stderr)
+    before_h = evaluate_attacks(Guard.from_texts(rules_yaml), sets["heldout"])[1]["leak_rate"]
+    after_h = evaluate_attacks(Guard.from_texts(res.rules_yaml), sets["heldout"])[1]["leak_rate"]
+    print(f"rules {len(res.kept) + len(res.dropped)} -> {len(res.kept)} | val leak {res.leak_before:.2%} -> {res.leak_after:.2%} | fp {res.fp_before:.2%} -> {res.fp_after:.2%} | held-out {before_h:.2%} -> {after_h:.2%}")
+    if not res.dropped:
+        print("nothing to prune"); return
+    if after_h > before_h:
+        print("held-out leak would rise; not committing (val/clean were blind to this)"); return
+    if a.dry_run:
+        print("dry run: dropped would be " + ", ".join(res.dropped)); return
+    import re as _re
+    stamped = _re.sub(r"^'?version'?:.*$", f"version: {a.gen}", res.rules_yaml, count=1, flags=_re.M)
+    repo.stage(stamped, prompt_md)
+    sha = repo.commit(f"gen-{a.gen}", f"gen {a.gen}: prune {len(res.dropped)} rule(s) whose removal changed nothing: {', '.join(res.dropped)}")
+    rec = {"gen": a.gen, "accepted": True, "reason": f"accepted: pruned {len(res.dropped)} dead rule(s), scores unchanged", "commit": sha,
+           "rationale": "prune (unlearning): " + ", ".join(res.dropped), "n_misses": 0,
+           "val_before": {"leak_rate": res.leak_before}, "val_after": {"leak_rate": res.leak_after},
+           "fp_before": {"fp_rate": res.fp_before}, "fp_after": {"fp_rate": res.fp_after}, "fp_examples": []}
+    with (ROOT / "runs" / "history.jsonl").open("a") as f:
+        f.write(json.dumps(rec) + "\n")
+    print(f"committed {sha} as gen-{a.gen}: dropped {', '.join(res.dropped)}")
+
+
 def cmd_report(a):
     hist = ROOT / "runs" / "history.jsonl"
     if not hist.exists():
@@ -196,6 +231,8 @@ def main(argv=None):
     s = sub.add_parser("improve", help="run N self-improvement generations"); s.add_argument("--generations", type=int, default=5); s.add_argument("--start-gen", type=int, default=1); s.add_argument("--baseline-tag", default="gen-0"); s.add_argument("--data", default=str(DATA)); s.add_argument("--llm", action="store_true"); s.add_argument("--min-delta", type=float, default=0.05); s.add_argument("--max-fp", type=float, default=0.05); s.set_defaults(fn=cmd_improve)
 
     s = sub.add_parser("bench", help="compare systems on the same held-out data (Presidio, gen-0, current, +LLM)"); s.add_argument("--data", default=str(DATA)); s.add_argument("--set", default="heldout", choices=["train", "val", "heldout"]); s.add_argument("--baseline-tag", default="gen-0"); s.add_argument("--llm", action="store_true"); s.add_argument("--no-presidio", action="store_true"); s.add_argument("--by-technique", action="store_true"); s.set_defaults(fn=cmd_bench)
+
+    s = sub.add_parser("prune", help="unlearning: drop rules whose removal changes no score; commit as a generation"); s.add_argument("--data", default=str(DATA)); s.add_argument("--gen", type=int, required=True); s.add_argument("--dry-run", action="store_true"); s.set_defaults(fn=cmd_prune)
 
     s = sub.add_parser("report", help="print generation history and held-out before/after"); s.add_argument("--markdown", action="store_true"); s.set_defaults(fn=cmd_report)
 
