@@ -69,3 +69,10 @@ def test_guard_from_texts_builds_without_files():
 def test_shipped_rules_catch_parenthesized_area_codes():
     g = make_guard()
     assert "(555) 010-2345" not in g.redact("Devon called from (555) 010-2345 today").text
+
+
+def test_phone_rule_matches_numbers_wrapped_in_brackets_too():
+    g = make_guard()
+    for t in ["call (555-010-2345) today", "call (5550102345) today", "fax: (555) 010-2345."]:
+        red = g.redact(t)
+        assert red.findings, t
