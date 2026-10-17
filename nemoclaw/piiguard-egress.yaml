@@ -1,0 +1,20 @@
+# NemoClaw custom policy preset. Apply with:
+#   nemoclaw <sandbox> policy add --from-file nemoclaw/piiguard-egress.yaml --yes
+# Intent: the sandboxed agent may ONLY reach the guard proxy on the host. Inference (Crusoe) and
+# web search (You.com) both go through the guard, which redacts PII before anything leaves the machine.
+preset:
+  name: piiguard-egress
+  description: "All inference and search egress routed through the PII guard proxy on the host"
+network_policies:
+  piiguard_proxy:
+    name: piiguard_proxy
+    endpoints:
+      - host: host.openshell.internal
+        port: 8787
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: { method: POST, path: "/v1/chat/completions" }
+          - allow: { method: GET, path: "/v1/models" }
+          - allow: { method: GET, path: "/you/search" }
+          - allow: { method: GET, path: "/health" }

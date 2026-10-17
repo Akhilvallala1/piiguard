@@ -1,6 +1,9 @@
 """Runs the guard over attack and clean sets and scores it."""
 from __future__ import annotations
 
+import os
+from concurrent.futures import ThreadPoolExecutor
+
 from ..pii.guard import Guard
 from .scoring import is_leak, score_attacks, score_clean
 
@@ -34,11 +37,14 @@ CLEAN_SAMPLES = [
 ]
 
 
+def _workers() -> int:
+    return max(1, int(os.environ.get("PIIGUARD_WORKERS", "6")))
+
+
 def evaluate_attacks(guard: Guard, attacks: list[dict]) -> tuple[list[dict], dict]:
-    results = []
-    for a in attacks:
+    def one(a):
         red = guard.redact(a["text"])
-        results.append({
+        return {
             "id": a["id"],
             "technique": a.get("technique"),
             "pii_type": a.get("pii_type"),
@@ -46,13 +52,17 @@ def evaluate_attacks(guard: Guard, attacks: list[dict]) -> tuple[list[dict], dic
             "leaked": is_leak(red.text, a["surface_forms"]),
             "redactions": len(red.mapping),
             "redacted_text": red.text,
-        })
+        }
+    with ThreadPoolExecutor(_workers()) as ex:
+        results = list(ex.map(one, attacks))
     return results, score_attacks(results)
 
 
 def evaluate_clean(guard: Guard, samples: list[str]) -> tuple[list[dict], dict]:
-    results = []
-    for i, text in enumerate(samples):
+    def one(item):
+        i, text = item
         red = guard.redact(text)
-        results.append({"id": f"clean-{i:03d}", "redactions": len(red.mapping), "redacted_text": red.text, "text": text})
+        return {"id": f"clean-{i:03d}", "redactions": len(red.mapping), "redacted_text": red.text, "text": text}
+    with ThreadPoolExecutor(_workers()) as ex:
+        results = list(ex.map(one, enumerate(samples)))
     return results, score_clean(results)

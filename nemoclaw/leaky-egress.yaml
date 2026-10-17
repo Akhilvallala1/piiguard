@@ -1,0 +1,33 @@
+# The "before" policy for the demo: a perfectly reasonable NemoClaw preset that allows the agent to talk
+# to Crusoe and You.com directly. OpenShell enforces WHERE bytes go, not WHAT is in them, so an agent
+# with this policy can still put a customer's SSN into a search query. That is the gap the guard closes.
+preset:
+  name: leaky-egress
+  description: "Direct Crusoe + You.com access (host-level allow, no content inspection)"
+network_policies:
+  crusoe_direct:
+    name: crusoe_direct
+    endpoints:
+      - host: api.inference.crusoecloud.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: { method: POST, path: "/v1/chat/completions" }
+          - allow: { method: GET, path: "/v1/models" }
+  youcom_direct:
+    name: youcom_direct
+    endpoints:
+      - host: api.ydc-index.io
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: { method: GET, path: "/**" }
+      - host: api.you.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: { method: GET, path: "/**" }
+          - allow: { method: POST, path: "/**" }

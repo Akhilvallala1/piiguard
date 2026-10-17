@@ -1,0 +1,66 @@
+"""One generation of self-improvement: eval -> coach -> stage -> gate -> commit or revert."""
+from __future__ import annotations
+
+import json
+import time
+from pathlib import Path
+from typing import Callable, Optional
+
+from .coach.gate import GuardRepo, decide
+from .coach.retrospective import Proposal
+from .eval.harness import evaluate_attacks, evaluate_clean
+from .pii.guard import Classifier, Guard
+
+CoachFn = Callable[[list[dict], str, str, dict], Proposal]
+
+
+def _scores(guard: Guard, attacks: list[dict], clean: list[str]) -> tuple[dict, dict]:
+    _, a = evaluate_attacks(guard, attacks)
+    _, c = evaluate_clean(guard, clean)
+    return a, c
+
+
+def run_generation(root: str | Path, gen: int, train: list[dict], val: list[dict], clean: list[str], coach_fn: CoachFn,
+                   classifier: Optional[Classifier] = None, min_leak_delta: float = 0.05, max_fp_increase: float = 0.05,
+                   log: Callable[[str], None] = lambda s: None) -> dict:
+    root = Path(root)
+    repo = GuardRepo(root)
+    t0 = time.time()
+
+    guard = Guard.from_dir(repo.guard_dir, classifier)
+    train_results, train_scores = evaluate_attacks(guard, train)
+    missed = set(train_scores["missed_ids"])
+    misses = [a for a in train if a["id"] in missed]
+    val_before, clean_before = _scores(guard, val, clean)
+    log(f"[gen {gen}] train leak {train_scores['leak_rate']:.2f} | val leak {val_before['leak_rate']:.2f} | fp {clean_before['fp_rate']:.2f} | {len(misses)} misses -> coach")
+
+    rules_yaml, prompt_md = repo.current_files()
+    proposal = coach_fn(misses, rules_yaml, prompt_md, train_scores)
+    log(f"[gen {gen}] coach: {proposal.rationale}")
+
+    repo.stage(proposal.rules_yaml, proposal.prompt_md)
+    candidate = Guard.from_dir(repo.guard_dir, classifier)
+    val_after, clean_after = _scores(candidate, val, clean)
+    decision = decide({"leak_rate": val_before["leak_rate"], "fp_rate": clean_before["fp_rate"]},
+                      {"leak_rate": val_after["leak_rate"], "fp_rate": clean_after["fp_rate"]},
+                      min_leak_delta, max_fp_increase)
+    sha = None
+    if decision.accepted:
+        sha = repo.commit(f"gen-{gen}", f"gen {gen}: {proposal.rationale}\n\nval leak {val_before['leak_rate']:.2f} -> {val_after['leak_rate']:.2f}, fp {clean_before['fp_rate']:.2f} -> {clean_after['fp_rate']:.2f}")
+    else:
+        repo.revert()
+    log(f"[gen {gen}] {decision.reason}" + (f" (commit {sha})" if sha else ""))
+
+    record = {
+        "gen": gen, "accepted": decision.accepted, "reason": decision.reason, "commit": sha,
+        "rationale": proposal.rationale, "n_misses": len(misses),
+        "train_before": train_scores, "val_before": val_before, "val_after": val_after,
+        "fp_before": clean_before, "fp_after": clean_after,
+        "proposal": {"rules_yaml": proposal.rules_yaml, "prompt_md": proposal.prompt_md},
+        "seconds": round(time.time() - t0, 1), "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+    }
+    runs = root / "runs"
+    runs.mkdir(exist_ok=True)
+    with (runs / "history.jsonl").open("a") as f:
+        f.write(json.dumps(record) + "\n")
+    return record
