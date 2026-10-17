@@ -1,0 +1,152 @@
+<!doctype html><html><head><meta charset="utf-8"><title>piiguard</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#1C1B19;--panel:#24231F;--paper:#F2EDE4;--mute:#8C877D;--leak:#FF6B57;--tok:#6FD3C7;--line:#3A3831}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;background:var(--bg);color:var(--paper);font-family:"IBM Plex Sans",Helvetica,Arial,sans-serif;overflow:hidden}
+.scene{position:absolute;inset:0;opacity:0;padding:72px 96px 0 96px}
+.scene.on{opacity:1}
+.kicker{font-family:"IBM Plex Mono",Menlo,monospace;font-size:22px;color:var(--mute);letter-spacing:.01em;margin-bottom:18px}
+h1{font-size:56px;font-weight:600;line-height:1.08;max-width:1500px;margin-bottom:34px;letter-spacing:-.01em}
+.term{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:28px 34px;font-family:"IBM Plex Mono",Menlo,monospace;font-size:27px;line-height:1.55;color:var(--paper);white-space:pre-wrap;word-break:break-word;min-height:220px}
+.term .p{color:var(--mute)}
+.leak{color:var(--leak);border-bottom:3px solid var(--leak)}
+.tok{color:#101512;background:var(--tok);border-radius:6px;padding:0 8px;font-weight:600}
+.line{opacity:0;transform:translateY(6px);transition:none}
+.line.v{opacity:1;transform:none}
+.verdict{margin-top:26px;font-size:40px;font-weight:600}
+.verdict.bad{color:var(--leak)} .verdict.good{color:var(--tok)}
+.cap{position:absolute;left:96px;right:96px;bottom:56px;font-size:34px;line-height:1.3;color:var(--paper);max-width:1500px}
+.cap span{background:rgba(28,27,25,.85);box-decoration-break:clone;-webkit-box-decoration-break:clone;padding:4px 10px}
+.big{font-family:"IBM Plex Mono",Menlo,monospace;font-size:300px;font-weight:600;line-height:1;letter-spacing:-.04em;margin:10px 0 0 -8px}
+.big small{font-size:120px;color:var(--mute);margin-left:10px}
+.row{display:flex;gap:56px;align-items:flex-start}
+.col{flex:1}
+table{border-collapse:collapse;font-family:"IBM Plex Mono",Menlo,monospace;font-size:25px;width:100%}
+#hist td,#hist th{padding:8px 16px}
+td,th{text-align:left;padding:10px 18px;border-bottom:1px solid var(--line)}
+th{color:var(--mute);font-weight:500}
+tr.rej td{color:var(--leak)} tr.acc td{color:var(--tok)}
+tr.hl td{background:#2E2C27}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:28px;margin:12px 0 30px}
+.step{border:1px solid var(--line);border-radius:10px;padding:26px 28px;opacity:.18}
+.step.v{opacity:1}
+.step b{display:block;font-size:34px;margin-bottom:8px}
+.step span{font-size:24px;color:var(--mute);line-height:1.35}
+.diff{font-family:"IBM Plex Mono",Menlo,monospace;font-size:24px;line-height:1.5;color:var(--tok)}
+.chips{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px}
+.chip{font-family:"IBM Plex Mono",Menlo,monospace;font-size:22px;border:1px solid var(--line);border-radius:999px;padding:6px 14px;color:var(--paper)}
+.close h1{font-size:88px;margin-top:140px}
+.close .sub{font-size:40px;color:var(--mute);margin-top:30px}
+.close .url{font-family:"IBM Plex Mono",Menlo,monospace;font-size:36px;margin-top:110px;color:var(--tok)}
+.logos{position:absolute;right:96px;top:76px;font-size:22px;color:var(--mute);text-align:right;max-width:760px;line-height:1.4}
+</style></head><body>
+
+<section class="scene" id="s0">
+  <div class="kicker">nemoclaw sandbox · piiguard-agent · policy: allow crusoe, allow you.com</div>
+  <h1>The sandbox decided where the bytes may go. It never read the bytes.</h1>
+  <div class="term" id="t0"></div>
+  <div class="verdict bad line" id="v0">4 PII values left the machine. Policy allowed every byte.</div>
+</section>
+
+<section class="scene" id="s1">
+  <div class="kicker">same request · agent → piiguard proxy → crusoe / you.com</div>
+  <h1>piiguard is the content layer. Tokens leave. Values stay.</h1>
+  <div class="term" id="t1"></div>
+  <div class="verdict good line" id="v1">0 PII values left the machine. Reply restored for the agent.</div>
+</section>
+
+<section class="scene" id="s2">
+  <div class="kicker">version n+1 loop · runs offline · scores on held-out attacks the coach never sees</div>
+  <h1>Then we made it fight itself.</h1>
+  <div class="steps">
+    <div class="step" id="st0"><b>Red team</b><span>Nemotron 3 Super encodes PII 12 ways inside search queries, tool calls, logs, code</span></div>
+    <div class="step" id="st1"><b>Coach</b><span>Nemotron 3 Super reads every leak and rewrites guard/rules.yaml</span></div>
+    <div class="step" id="st2"><b>Gate</b><span>keep only if validation leaks drop and clean traffic stays clean</span></div>
+    <div class="step" id="st3"><b>git tag gen-N</b><span>accepted → committed and tagged · rejected → reverted and logged</span></div>
+  </div>
+  <table id="hist"></table>
+</section>
+
+<section class="scene" id="s3">
+  <div class="row">
+    <div class="col">
+      <div class="kicker">held-out leak rate · 30 attacks · false positives on clean traffic: 0% → 0%</div>
+      <div class="big"><span id="num">76.7</span><small>%</small></div>
+      <div class="kicker" id="numlabel" style="font-size:28px;color:var(--paper);margin-top:18px">generation 0 · hand-written rules</div>
+      <div class="diff" id="diff" style="margin-top:40px"></div>
+    </div>
+    <div class="col"><table id="bench"></table></div>
+  </div>
+</section>
+
+<section class="scene close" id="s4">
+  <div class="kicker">piiguard prune --gen 16</div>
+  <div class="term" id="t4" style="font-size:25px"></div>
+  <h1 id="h4" class="line">NemoClaw decides where.<br>piiguard decides what.</h1>
+  <div class="url line" id="u4">github.com/Akhilvallala1/piiguard</div>
+  <div class="logos">Crusoe Managed Inference · NVIDIA Nemotron 3.5 Lightning + 3 Super · NemoClaw / OpenShell · You.com</div>
+</section>
+
+<div class="cap" id="cap"></div>
+
+<script>
+let D = null, T = [], CAPS = [];
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+function mark(text, vals, cls){ let h = esc(text); for (const v of vals){ h = h.split(esc(v)).join(`<span class="${cls}">${esc(v)}</span>`);} return h }
+function lines(el, arr, p){ // reveal arr lines progressively over p in [0,1]
+  const n = arr.length; el.innerHTML = arr.map((l,i)=>`<div class="line ${p*n > i+0.3 ? 'v':''}">${l}</div>`).join('');
+}
+window.setData = function(d, timings, caps){ D = d; T = timings; CAPS = caps;
+  const h = document.getElementById('hist');
+  h.innerHTML = '<tr><th>gen</th><th>kept</th><th>validation leak</th><th>false pos.</th><th>coach</th></tr>' + D.history.filter(r=>r.gen<=14 && !/coach failed/.test(r.reason)).map(r=>
+    `<tr class="${r.ok?'acc':'rej'}" data-gen="${r.gen}"><td>${r.gen}</td><td>${r.ok?'yes':'no'}</td><td>${(r.before*100).toFixed(0)}% → ${(r.after*100).toFixed(0)}%</td><td>${(r.fp_after*100).toFixed(0)}%</td><td>${esc(r.ok? r.rationale : r.reason.replace('rejected: ','')).slice(0,58)}</td></tr>`).join('');
+  const b = document.getElementById('bench');
+  b.innerHTML = '<tr><th>same 30 held-out attacks</th><th>leak</th><th>false pos.</th><th>ms</th></tr>' + D.bench.map(r=>
+    `<tr data-sys="${esc(r.system)}"><td>${esc(r.system.replace(' (no content layer)','').replace(' (default recognizers)',' default').replace(' (scoped: SSN, email, phone, card)',' scoped').replace(' (hand-written rules)','').replace(' rules (self-improved, no model call)',' rules').replace(' rules + Nemotron 3.5 Lightning classifier',' + Nemotron classifier'))}</td><td>${(r.leak_rate*100).toFixed(1)}%</td><td>${(r.fp_rate*100).toFixed(0)}%</td><td>${Math.round(r.ms_per_text)}</td></tr>`).join('');
+};
+function sceneAt(t){ let acc=0; for (let i=0;i<T.length;i++){ if (t < acc+T[i]) return [i,(t-acc)/T[i]]; acc+=T[i]; } return [T.length-1,1]; }
+window.seek = function(t){
+  const [i,p] = sceneAt(t);
+  document.querySelectorAll('.scene').forEach((s,k)=>s.classList.toggle('on',k===i));
+  const pii = Object.values(D.pii);
+  if (i===0){
+    const arr = [`<span class="p">POST</span> https://api.inference.crusoecloud.com/v1/chat/completions`,
+      `<span class="p">"content":</span> "${mark(D.task, pii, 'leak')}"`,
+      `<span class="p">GET</span>  https://api.you.com/v1/search?query=${mark(D.search, pii, 'leak')}`];
+    lines(document.getElementById('t0'), arr, Math.min(1,p*1.6));
+    document.getElementById('v0').classList.toggle('v', p>0.72);
+  }
+  if (i===1){
+    const ev = D.event, es = D.event_search;
+    const arr = [`<span class="p">what left the host →</span> ${esc(ev.preview.replace(/^"|"$/g,'')).replace(/\[PII_[A-Z_]+_\d+\]/g, m=>`<span class="tok">${m}</span>`)}`,
+      `<span class="p">search query that left →</span> ${esc(es.preview).replace(/\[PII_[A-Z_]+_\d+\]/g, m=>`<span class="tok">${m}</span>`)}`,
+      `<span class="p">held on host, never sent →</span> ${ev.tokens.map(t=>`<span class="tok">${t}</span>`).join(' ')}  ↔  ${pii.map(v=>`<span class="leak">${esc(v)}</span>`).join(' · ')}`,
+      `<span class="p">from inside the sandbox →</span> ${esc(D.sandbox_event.preview.replace(/^"|"$/g,'')).replace(/\[PII_[A-Z_]+_\d+\]/g, m=>`<span class="tok">${m}</span>`)}`];
+    lines(document.getElementById('t1'), arr, Math.min(1,p*1.5));
+    document.getElementById('v1').classList.toggle('v', p>0.75);
+  }
+  if (i===2){
+    for (let k=0;k<4;k++) document.getElementById('st'+k).classList.toggle('v', p > 0.08 + k*0.11);
+    const rows = document.querySelectorAll('#hist tr[data-gen]');
+    rows.forEach((r,k)=>{ r.style.opacity = (p > 0.45 + k*0.05) ? 1 : 0.08; r.classList.toggle('hl', r.dataset.gen==='2' && p>0.8); });
+  }
+  if (i===3){
+    const n = document.getElementById('num'), lab = document.getElementById('numlabel');
+    let v = 76.7, l = 'generation 0 · hand-written rules';
+    if (p>0.10){ const q=Math.min(1,(p-0.10)/0.18); v = 76.7 - (76.7-16.7)*q; l = q<1?'learning…':'generation 14 · rules only · 1 ms per request'; }
+    if (p>0.42){ const q=Math.min(1,(p-0.42)/0.10); v = 16.7 - 16.7*q; l = 'generation 14 + Nemotron 3.5 Lightning classifier'; }
+    n.textContent = v.toFixed(1); lab.textContent = l;
+    document.querySelectorAll('#bench tr[data-sys]').forEach((r,k)=>{ r.style.opacity = p > 0.50 + k*0.03 ? 1 : 0.08; r.classList.toggle('hl', /Presidio/.test(r.dataset.sys) && p>0.6 && p<0.86); });
+    const dv = document.getElementById('diff');
+    dv.innerHTML = p>0.84 ? `${esc(D.diff_stat)}<div class="chips">${D.diff_added_rules.map(x=>`<span class="chip">+ ${esc(x)}</span>`).join('')}</div><div style="color:var(--mute);margin-top:10px">git tags: ${D.tags.join(' · ')}</div>` : '';
+  }
+  if (i===4){
+    lines(document.getElementById('t4'), D.prune_lines.map(esc).map(l=>/refus|not committing|rise/.test(l)?`<span class="leak">${l}</span>`:l), Math.min(1,p*2.2));
+    document.getElementById('h4').classList.toggle('v', p>0.55);
+    document.getElementById('u4').classList.toggle('v', p>0.7);
+  }
+  const c = CAPS.find(c=>t>=c.start && t<c.end);
+  document.getElementById('cap').innerHTML = c ? `<span>${esc(c.text)}</span>` : '';
+};
+</script></body></html>
