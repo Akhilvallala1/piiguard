@@ -26,6 +26,9 @@ _KEYWORDS = re.compile(r"\b(ssn|social|dob|birth|passport|license|licence|card|a
 
 SMALL_MAX_SCORE = 4
 LARGE_MIN_CHARS = 600
+# Fail closed by default: a zero-signal text skips the model only if it is short. Longer prose can carry semantic PII
+# with no shape at all (a described person, a condition), so it still gets the small model. Raise with care.
+SKIP_MAX_CHARS = 160
 
 
 def complexity(text: str, regex_findings) -> dict:
@@ -54,7 +57,7 @@ def complexity(text: str, regex_findings) -> dict:
 
 
 def route(c: dict) -> str:
-    if c["score"] == 0:
+    if c["score"] == 0 and c["chars"] <= SKIP_MAX_CHARS:
         return "skip"
     if c["score"] > SMALL_MAX_SCORE or c["chars"] > LARGE_MIN_CHARS:
         return "large"

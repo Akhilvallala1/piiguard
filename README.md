@@ -122,8 +122,9 @@ bash nemoclaw/onboard.sh                     # NemoClaw sandbox whose only egres
 With the classifier on, every request would cost a model call. Instead `piiguard/pii/router.py` scores what is
 left after the regex rules ran (digit runs, base64-looking tokens, hex, spelled-out numbers, fullwidth digits,
 percent-encoding, odd separators, id-shaped strings, name-shaped pairs, PII keywords) and picks a route:
-**skip** (nothing suspicious remains, no call), **small** (Nemotron 3.5 Lightning), or **large** (Nemotron 3 Super,
-for broad or long inputs). The demo page shows the route and the milliseconds for every request. The policy is one
+**skip** (nothing suspicious remains and the text is short, no call), **small** (Nemotron 3.5 Lightning), or **large**
+(Nemotron 3 Super, for broad or long inputs). Skip is deliberately narrow: longer zero-signal prose still gets the
+small model, because semantic PII can have no shape at all. That is the fail-closed default; it is a one-line knob. The demo page shows the route and the milliseconds for every request. The policy is one
 pure function behind the classifier interface; NVIDIA NeMo Switchyard (`pip install nemo-switchyard`, 0.3.0) ships a
 `stage_router` for exactly this kind of signal-driven escalation and is the production home for that verdict.
 

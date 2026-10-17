@@ -31,3 +31,9 @@ def test_routed_classifier_uses_the_right_model_and_reports_it():
     assert rc("ssn is nine one two dash", "p") == [{"text": "nine one two", "type": "ssn"}] and rc.last["route"] == "small"
     long = ("badge ADJ-1, claim CLM-2, MTIzNC01Njc4LTkwMTItMzQ1Ng==, 3931322d33342d35363738, ％39％31, ９１２, nine one two, passport license dob. ") * 3
     rc(long, "p"); assert rc.last["route"] == "large" and calls[-1] == "large"
+
+
+def test_long_zero_signal_text_still_sees_the_small_model():
+    text = ("Please summarize the quarterly roadmap and the hiring plan for the platform team in a few bullets. " * 3)
+    c = complexity(text, [])
+    assert c["score"] == 0 and route(c) == "small"   # skipping is only allowed for short structural strings
