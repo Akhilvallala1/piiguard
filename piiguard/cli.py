@@ -163,7 +163,7 @@ def cmd_prune(a):
         print("  " + n, file=sys.stderr)
     before_h = evaluate_attacks(Guard.from_texts(rules_yaml), sets["heldout"])[1]["leak_rate"]
     after_h = evaluate_attacks(Guard.from_texts(res.rules_yaml), sets["heldout"])[1]["leak_rate"]
-    print(f"rules {len(res.kept) + len(res.dropped)} -> {len(res.kept)} | val leak {res.leak_before:.2%} -> {res.leak_after:.2%} | fp {res.fp_before:.2%} -> {res.fp_after:.2%} | held-out {before_h:.2%} -> {after_h:.2%}")
+    print(f"rules {len(res.kept) + len(res.dropped)} -> {len(res.kept)} | train+val leak {res.leak_before:.2%} -> {res.leak_after:.2%} | fp {res.fp_before:.2%} -> {res.fp_after:.2%} | held-out tripwire {before_h:.2%} -> {after_h:.2%}")
     if not res.dropped:
         print("nothing to prune"); return
     if after_h > before_h:

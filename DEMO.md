@@ -52,6 +52,9 @@ The Crusoe key lives only in the proxy; the sandbox holds a proxy token.
   (`openshell provider update compatible-endpoint --config OPENAI_BASE_URL=...` if it was created with the wrong URL).
 
 ## Q&A ammo
+- "Can it unlearn?" Yes, two ways. Rollback is a git tag away. And `piiguard prune` ablates every rule and drops it only if
+  nothing changes on train+val; held-out is a tripwire. Live: it found 10 "dead" rules and refused, because held-out leak
+  would have gone 16.7% -> 26.7%. A guard should only forget when forgetting is provably free.
 - Why not just a bigger model? The guard runs on a 3B-active Nemotron; the coach is expensive but runs offline.
 - Held-out set is never shown to the coach; split is seeded and committed.
 - Reversible tokens mean the agent's task still completes; nothing is lost, only moved.

@@ -79,8 +79,18 @@ the whole point of the loop.
 **Held-out attacks (never shown to the coach, n=30): leak rate 76.7% → 16.7%. False positives on clean traffic: 0.0% → 0.0%.**
 <!-- generations:end -->
 
-Every accepted generation is a git tag (`git tag --list 'gen-*'`); `git diff gen-0 gen-3 -- guard/` shows
+Every accepted generation is a git tag (`git tag --list 'gen-*'`); `git diff gen-0 gen-14 -- guard/` shows
 exactly what the system learned, in plain YAML.
+
+### Unlearning, with a tripwire
+
+`piiguard prune --gen N` is the forgetting half of the loop: it removes each rule in turn and keeps the removal
+only if the leak rate on train+val and the false-positive rate on clean traffic are both unchanged. Held-out is
+never used to decide, but it is checked as a tripwire before anything is committed. On this dataset the step
+found 10 rules that looked dead on 120 attacks, and the tripwire showed that removing them raised held-out leak
+from 16.7 % to 26.7 %, so it refused to commit. That is the right answer: with 150 attacks, "never fired on what
+I can measure" is not the same as "useless", and a guard should forget only when forgetting is provably free.
+Rollback is always one command: every generation is a tag, so `git checkout gen-3 -- guard/` undoes anything.
 
 ## Quickstart
 
