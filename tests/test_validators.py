@@ -37,3 +37,23 @@ def test_hex_and_url_validators():
 def test_validator_docs_cover_every_validator():
     from piiguard.pii.rules import VALIDATORS
     assert set(VALIDATOR_DOCS) == set(VALIDATORS)
+
+
+def test_timeout_inside_a_decoder_validator_fails_closed():
+    from piiguard.pii.rules import Rule
+    class Hang:
+        pattern = "x"
+        def finditer(self, text, timeout=None):
+            raise TimeoutError("regex timeout")
+    g = make("  - name: b64\n    pattern: '\\b[A-Za-z0-9+/]{12,}={0,2}'\n    validator: decodes_to_pii_base64\n")
+    g.rules.rules.insert(0, Rule(name="hang", pattern="x", regex=Hang()))  # a plain rule that hangs
+    red = g.redact("blob OTEyLTM0LTU2Nzg= here")
+    assert red.text == "[PII_SCAN_TIMEOUT_1]"
+
+def test_base64_with_invalid_utf8_byte_and_urlsafe_alphabet_still_detected():
+    import base64
+    g = make("  - name: b64\n    pattern: '[A-Za-z0-9+/_-]{12,}={0,2}'\n    validator: decodes_to_pii_base64\n")
+    dirty = base64.b64encode(b"\xff ssn 912-34-5678").decode()           # leading invalid utf-8 byte
+    assert dirty not in g.redact("x " + dirty + " y").text
+    urlsafe = base64.urlsafe_b64encode(b"maria.chen@example.com?").decode()  # produces '-' or '_' chars
+    assert urlsafe not in g.redact("x " + urlsafe + " y").text

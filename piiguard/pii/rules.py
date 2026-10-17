@@ -49,19 +49,28 @@ def _v_luhn(s: str, ruleset=None) -> bool:
     return luhn_ok(s)
 
 
+import binascii as _binascii
+
+_DECODE_ERRORS = (ValueError, _binascii.Error, UnicodeDecodeError)  # only decode failures are swallowed; TimeoutError propagates (fail closed)
+
+
 def _v_base64(s: str, ruleset=None) -> bool:
-    try:
-        raw = _b64.b64decode(s + "=" * (-len(s) % 4), validate=False)
-        return _plain_hit(raw.decode("utf-8"), ruleset)
-    except Exception:  # noqa: BLE001
-        return False
+    padded = s + "=" * (-len(s) % 4)
+    decoded: list[str] = []
+    for fn in (_b64.b64decode, _b64.urlsafe_b64decode):
+        try:
+            decoded.append(fn(padded).decode("utf-8", errors="ignore"))
+        except _DECODE_ERRORS:
+            continue
+    return any(_plain_hit(t, ruleset) for t in decoded)
 
 
 def _v_hex(s: str, ruleset=None) -> bool:
     try:
-        return _plain_hit(bytes.fromhex(s).decode("utf-8"), ruleset)
-    except Exception:  # noqa: BLE001
+        text = bytes.fromhex(s).decode("utf-8", errors="ignore")
+    except _DECODE_ERRORS:
         return False
+    return _plain_hit(text, ruleset)
 
 
 def _v_url(s: str, ruleset=None) -> bool:
