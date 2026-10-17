@@ -7,4 +7,4 @@ runs/*/
 !runs/.gitkeep
 .pytest_cache/
 dist/
-video/out/
+video/

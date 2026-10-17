@@ -1,7 +1,0 @@
-[
-  {"id": "hook", "text": "This agent runs inside NVIDIA's NemoClaw sandbox. OpenShell controls where bytes can go. It never reads them. A customer's SSN, email and card just left the machine. Policy allowed every byte."},
-  {"id": "guard", "text": "piiguard is the missing content layer. It sits on every allowed egress, swaps PII for reversible tokens, keeps the keys on the host, and restores the values on the way back. Nothing left. The agent still got its answer."},
-  {"id": "loop", "text": "Then it fights itself. A Nemotron red team hides PII twelve ways. A Nemotron coach reads every leak and rewrites the rules. A gate keeps a change only if validation leaks drop and clean traffic stays clean. Rejections are the point. This one flagged dates. Reverted."},
-  {"id": "numbers", "text": "On attacks the coach never saw: seventy-seven percent leak down to seventeen. Zero false positives. One millisecond. Add a Nemotron Lightning classifier: zero. Presidio on the same data: fifty-three percent leak, sixty-four percent false positives. Every generation is a git tag. What it learned is a diff."},
-  {"id": "close", "text": "It forgets, too. Pruning found ten dead-looking rules, checked held-out, saw leaks rise, and refused. NemoClaw decides where. piiguard decides what. Open source. Built today, on Crusoe."}
-]
