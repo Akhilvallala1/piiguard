@@ -17,6 +17,7 @@ class LLMClassifier:
         self._models = models
         self._cache: dict[tuple[str, str], list[dict]] = {}
         self._lock = threading.Lock()
+        self.last_cached = False
 
     def _call(self, messages: list[dict]) -> str:
         if self._chat is None:
@@ -28,7 +29,9 @@ class LLMClassifier:
         key = (prompt, text)
         with self._lock:
             if key in self._cache:
+                self.last_cached = True
                 return self._cache[key]
+        self.last_cached = False
         messages = [{"role": "system", "content": prompt}, {"role": "user", "content": "TEXT:\n" + text}]
         try:
             raw = self._call(messages)

@@ -79,7 +79,9 @@ class RoutedClassifier:
         t0 = time.perf_counter()
         c = complexity(text, regex_findings or [])
         r = route(c)
-        spans = [] if r == "skip" else (self.small if r == "small" else self.large)(text, prompt)
+        clf = None if r == "skip" else (self.small if r == "small" else self.large)
+        spans = [] if clf is None else clf(text, prompt)
         self.counts[r] += 1
-        self.last = {"route": r, "ms": round((time.perf_counter() - t0) * 1000), "score": c["score"], "signals": c["signals"]}
+        self.last = {"route": r, "ms": round((time.perf_counter() - t0) * 1000), "score": c["score"], "signals": c["signals"],
+                     "chars": c["chars"], "cached": bool(clf is not None and getattr(clf, "last_cached", False))}
         return spans

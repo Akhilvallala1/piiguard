@@ -37,3 +37,12 @@ def test_long_zero_signal_text_still_sees_the_small_model():
     text = ("Please summarize the quarterly roadmap and the hiring plan for the platform team in a few bullets. " * 3)
     c = complexity(text, [])
     assert c["score"] == 0 and route(c) == "small"   # skipping is only allowed for short structural strings
+
+
+def test_routed_classifier_reports_cache_hits():
+    calls = []
+    def small(messages, **kw): calls.append(1); return '{"spans": [{"text": "nine one two", "type": "ssn"}]}'
+    rc = RoutedClassifier(small_chat=small, large_chat=small)
+    rc("ssn is nine one two dash", "p"); first = dict(rc.last)
+    rc("ssn is nine one two dash", "p"); second = dict(rc.last)
+    assert first["cached"] is False and second["cached"] is True and len(calls) == 1

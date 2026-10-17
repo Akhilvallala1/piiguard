@@ -195,3 +195,10 @@ def test_demo_run_reports_rules_only_and_classifier_panes_with_route_and_latency
     assert "ms" in body["rules_only"]
     assert body["guarded"]["left"] == "[PII_NAME_1] called from [PII_PHONE_US_1]"
     assert body["guarded"]["route"]["route"] == "small" and "ms" in body["guarded"]
+
+
+def test_demo_data_sorts_generation_tags_numerically(monkeypatch):
+    import piiguard.proxy as px
+    monkeypatch.setattr(px, "_git_tags", lambda: ["gen-0", "gen-1", "gen-14", "gen-22", "gen-3"])
+    client = TestClient(create_app(upstream=FakeUpstream(), token="t"))
+    assert client.get("/demo/data", headers={"Authorization": "Bearer t"}).json()["tags"] == ["gen-0", "gen-1", "gen-3", "gen-14", "gen-22"]

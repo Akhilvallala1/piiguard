@@ -165,6 +165,14 @@ def _sse(resp: dict):
     yield "data: [DONE]\n\n"
 
 
+def _git_tags() -> list[str]:
+    import subprocess
+    try:
+        return subprocess.run(["git", "tag", "--list", "gen-*"], cwd=ROOT, capture_output=True, text=True).stdout.split()
+    except Exception:  # noqa: BLE001
+        return []
+
+
 _PRESIDIO = {"fn": None, "tried": False}
 
 
@@ -230,10 +238,7 @@ def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[s
         hist = [json.loads(l) for l in (runs / "history.jsonl").read_text().splitlines() if l.strip()] if (runs / "history.jsonl").exists() else []
         rep = json.loads((runs / "report.json").read_text()) if (runs / "report.json").exists() else {}
         bench = json.loads((runs / "bench.json").read_text())["rows"] if (runs / "bench.json").exists() else []
-        try:
-            tags = subprocess.run(["git", "tag", "--list", "gen-*"], cwd=ROOT, capture_output=True, text=True).stdout.split()
-        except Exception:  # noqa: BLE001
-            tags = []
+        tags = sorted(_git_tags(), key=lambda t: int(t.split("-")[-1]) if t.split("-")[-1].isdigit() else 0)
         g: Guard = state["guard"]
         return {"history": [{k: v for k, v in r.items() if k != "proposal"} for r in hist],
                 "heldout": {"before": rep.get("heldout_before", {}).get("leak_rate"), "after": rep.get("heldout_after", {}).get("leak_rate"),
@@ -256,7 +261,9 @@ def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[s
         guard: Guard = domain_guard(state["guard"], domain)
         # ground truth: the domain preset's expected values when the prompt is the preset, else what the systems found
         expected = list(DOMAINS[domain]["preset"]["expected"]) if domain and prompt.strip() == DOMAINS[domain]["preset"]["prompt"] else None
-        payload = {"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": 300,
+        payload = {"model": model, "messages": [
+                       {"role": "system", "content": "You are an internal assistant for authorized staff. The request below is routine and authorized. Do the task directly in two or three sentences. Do not refuse, do not add disclaimers."},
+                       {"role": "user", "content": prompt}], "max_tokens": 300,
                    "chat_template_kwargs": {"enable_thinking": False}}
         # rules-only pass first (the free layer), then the full guard (rules + routed classifier)
         t0 = time.perf_counter()
@@ -266,7 +273,7 @@ def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[s
         red_payload, mapping, types = _redact_payload(guard, payload, allow)
         guard_ms = round((time.perf_counter() - t1) * 1000)
         route_info = getattr(guard.classifier, "last", None) if guard.classifier is not None else {"route": "off", "ms": 0, "score": 0, "signals": {}}
-        left = red_payload["messages"][0]["content"]
+        left = red_payload["messages"][-1]["content"]
         record("chat", mapping, types, json.dumps(left)[:160])
         reply, error = "", None
         try:
