@@ -196,7 +196,7 @@ def cmd_report(a):
     print(f"{'gen':>3} {'ok':<3} {'val leak before->after':<26} {'fp before->after':<20} rationale")
     for line in hist.read_text().splitlines():
         r = json.loads(line)
-        print(f"{r['gen']:>3} {'Y' if r['accepted'] else 'n':<3} {r['val_before']['leak_rate']:.2f} -> {r['val_after']['leak_rate']:.2f}{'':<14} {r['fp_before']['fp_rate']:.2f} -> {r['fp_after']['fp_rate']:.2f}{'':<8} {r['rationale'][:70]}")
+        print(f"{r['gen']:>3} {'Y' if r['accepted'] else 'n':<3} {r['val_before']['leak_rate']:.2f} -> {r['val_after']['leak_rate']:.2f}{'':<14} {r['fp_before']['fp_rate']:.2f} -> {r['fp_after']['fp_rate']:.2f}{'':<8} {(r['rationale'] or r['reason'].replace('rejected: ', ''))[:70]}")
     rep = ROOT / "runs" / "report.json"
     if rep.exists():
         d = json.loads(rep.read_text())

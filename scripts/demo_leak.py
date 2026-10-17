@@ -33,7 +33,8 @@ def main():
     a = ap.parse_args()
     token = os.environ.get("GUARD_PROXY_TOKEN") or sys.exit("set GUARD_PROXY_TOKEN to the token the proxy printed")
     payload = {"model": os.environ.get("WORKER_MODEL", "nvidia/Nemotron-3.5-Lightning-30B-A3B"),
-               "messages": [{"role": "user", "content": TASK}], "max_tokens": 900}
+               "messages": [{"role": "user", "content": TASK}], "max_tokens": 300,
+               "chat_template_kwargs": {"enable_thinking": False}}
 
     banner("1. DIRECT: agent -> Crusoe / You.com (sandbox policy allows these hosts)")
     print("POST https://api.inference.crusoecloud.com/v1/chat/completions")

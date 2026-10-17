@@ -24,7 +24,7 @@ $PY -m piiguard.cli report
 
 pause "4/5 what the system learned (plain YAML diff) + one rejected idea"
 git --no-pager diff gen-0 "$(git tag --list 'gen-*' | sort -V | tail -1)" --stat -- guard/
-git --no-pager diff gen-0 "$(git tag --list 'gen-*' | sort -V | tail -1)" -- guard/rules.yaml | grep -E "^\+.*name:" | head -12
+echo "rules added by the coach:"; (git --no-pager diff gen-0 "$(git tag --list 'gen-*' | sort -V | tail -1)" -- guard/rules.yaml | grep -E "^\+.*name'?:" | sed -E "s/.*name'?: *'?([^']+)'?/\1/" | grep -vxE "ssn|email|phone_us|credit_card" | sed "s/^/  + /" | head -14) || true
 echo; echo "rejected proposals and why:"; $PY -c "
 import json
 for l in open('runs/history.jsonl'):
