@@ -14,8 +14,9 @@ DATA = ROOT / "data" / "attacks"
 def _classifier(use_llm: bool):
     if not use_llm:
         return None
-    from .pii.classifier import LLMClassifier
-    return LLMClassifier()
+    from .crusoe import COACH_MODEL, FALLBACK_MODEL, WORKER_MODEL
+    from .pii.router import RoutedClassifier
+    return RoutedClassifier(small_models=[WORKER_MODEL, FALLBACK_MODEL], large_models=[COACH_MODEL, WORKER_MODEL])
 
 
 def _load_sets(data: Path):

@@ -57,7 +57,11 @@ class Guard:
                 # Pathological input vs. a rule: never let it through unscanned.
                 return [Finding("scan_timeout", text, 0, len(text), "timeout")]
         if use_classifier and self.classifier is not None:
-            for span in self.classifier(text, self.prompt):
+            try:
+                spans = self.classifier(text, self.prompt, regex_findings=list(found))
+            except TypeError:  # plain classifiers take (text, prompt)
+                spans = self.classifier(text, self.prompt)
+            for span in spans:
                 value = str(span.get("text", ""))
                 if not value:
                     continue

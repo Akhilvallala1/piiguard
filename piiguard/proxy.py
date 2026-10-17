@@ -233,7 +233,14 @@ def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[s
         guard: Guard = state["guard"]
         payload = {"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": 300,
                    "chat_template_kwargs": {"enable_thinking": False}}
+        # rules-only pass first (the free layer), then the full guard (rules + routed classifier)
+        t0 = time.perf_counter()
+        rules_only = Guard(guard.rules, guard.prompt, None).redact(prompt)
+        rules_ms = round((time.perf_counter() - t0) * 1000, 1)
+        t1 = time.perf_counter()
         red_payload, mapping, types = _redact_payload(guard, payload, allow)
+        guard_ms = round((time.perf_counter() - t1) * 1000)
+        route_info = getattr(guard.classifier, "last", None) if guard.classifier is not None else {"route": "off", "ms": 0, "score": 0, "signals": {}}
         left = red_payload["messages"][0]["content"]
         record("chat", mapping, types, json.dumps(left)[:160])
         reply, error = "", None
@@ -253,7 +260,9 @@ def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[s
         except Exception as e:  # noqa: BLE001 - the comparison pane must never break the demo
             presidio = {"left": prompt, "missed": [sp["value"] for sp in spans], "error": type(e).__name__}
         return {"direct": {"text": prompt, "spans": spans},
-                "guarded": {"left": left, "tokens": list(mapping), "types": sorted(set(types)), "reply": reply, "error": error, "search_left": search_left},
+                "rules_only": {"left": rules_only.text, "tokens": list(rules_only.mapping), "ms": rules_ms},
+                "guarded": {"left": left, "tokens": list(mapping), "types": sorted(set(types)), "reply": reply, "error": error,
+                            "search_left": search_left, "ms": guard_ms, "route": route_info},
                 "presidio": presidio}
 
     @app.get("/v1/models", dependencies=[Depends(auth)])

@@ -180,3 +180,18 @@ def test_demo_run_includes_a_presidio_pane_when_available():
     p = r.json()["presidio"]
     assert "maria.chen@example.com" not in p["left"]          # Presidio knows emails
     assert "ADJ-48213-TX" in p["left"]                        # and has no idea what an adjuster badge is
+
+
+def test_demo_run_reports_rules_only_and_classifier_panes_with_route_and_latency():
+    up = FakeUpstream()
+    calls = []
+    def clf(text, prompt, regex_findings=None):
+        calls.append(text); return [{"text": "Devon Okafor", "type": "name"}]
+    clf.last = {"route": "small", "ms": 12, "score": 3, "signals": {"name_like": 1}}
+    client = TestClient(create_app(upstream=up, token="t", classifier=clf))
+    r = client.post("/demo/run", headers={"Authorization": "Bearer t"}, json={"prompt": "Devon Okafor called from (555) 010-2345"})
+    body = r.json()
+    assert body["rules_only"]["left"] == "Devon Okafor called from [PII_PHONE_US_1]"
+    assert "ms" in body["rules_only"]
+    assert body["guarded"]["left"] == "[PII_NAME_1] called from [PII_PHONE_US_1]"
+    assert body["guarded"]["route"]["route"] == "small" and "ms" in body["guarded"]

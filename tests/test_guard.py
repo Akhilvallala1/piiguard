@@ -64,3 +64,8 @@ def test_guard_from_texts_builds_without_files():
     from piiguard.pii.guard import Guard
     g = Guard.from_texts("version: 3\nrules:\n  - name: ssn\n    pattern: '\\b\\d{3}-\\d{2}-\\d{4}\\b'\n", "p")
     assert g.rules.version == 3 and g.redact("x 912-34-5678").text == "x [PII_SSN_1]"
+
+
+def test_shipped_rules_catch_parenthesized_area_codes():
+    g = make_guard()
+    assert "(555) 010-2345" not in g.redact("Devon called from (555) 010-2345 today").text
