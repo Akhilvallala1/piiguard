@@ -8,3 +8,4 @@ runs/*/
 .pytest_cache/
 dist/
 video/
+data/external/
