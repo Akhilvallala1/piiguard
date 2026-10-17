@@ -5,7 +5,7 @@ version: 23
 - 'name': 'email'
   'pattern': '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
 - 'name': 'phone_us'
-  'pattern': '(?<![\d(])(?:\+1[ .-]?)?(?:\(\d{3}\)|\d{3})[ .-]?\d{3}[ .-]?\d{4}\b'
+  'pattern': '(?<!\d)(?:\+1[ .-]?)?(?:\(\d{3}\)|\d{3})[ .-]?\d{3}[ .-]?\d{4}\b'
 - 'name': 'credit_card'
   'pattern': '\b(?:\d[ -]?){12,15}\d\b'
   'validator': 'luhn'
