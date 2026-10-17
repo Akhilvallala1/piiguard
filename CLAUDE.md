@@ -58,6 +58,7 @@ The system is a closed loop: **red team → guard → eval → coach → gate �
 ### Planned, not yet scaffolded
 - **Proxy**: FastAPI/uvicorn OpenAI-compatible endpoint (and You.com pass-through via `YDC_API_KEY`) that redacts outbound requests and restores inbound responses; authenticated with `GUARD_PROXY_TOKEN`. This is what a NemoClaw sandbox points at.
 - **`nemoclaw/`**: onboard script, OpenShell egress policy YAML (allow only the proxy, deny direct Crusoe/You.com reach), and a leak-demo script.
+  Positioning (verified 2026-10-17 against NVIDIA/OpenShell + NVIDIA/NemoClaw main): OpenShell network rules match host/port/binary/method/path/query only, never request bodies; NemoClaw docs say the rule "does not inspect the application protocol or payload". OpenShell does expose a *supervisor middleware* hook (RFC 0009, research preview, `network_middlewares:` in policy + gateway TOML registration) but the only built-in is a demo-only, non-configurable `sk-` key regex. PII guard is the content layer that hook leaves empty. Stretch: expose the guard as a gRPC supervisor middleware so it slots into `network_middlewares`.
 - **`runs/`**: per-iteration JSONL logs (gitignored except `.gitkeep`).
 
 ## Conventions
