@@ -103,10 +103,25 @@ def test_ids_must_start_with_a_letter_and_roles_must_be_known():
         inspected.append(text)
         return [{"text": text, "type": "other"}] if text.isdigit() else []
     client = TestClient(create_app(upstream=up, token="t", classifier=classifier))
-    msgs = [{"role": "user", "content": "hi", "tool_calls": [{"id": "call_ok1", "type": "function", "function": {"name": "f", "arguments": "{}"}}, {"id": "393132333435363738", "type": "function", "function": {"name": "f", "arguments": "{}"}}]},
+    msgs = [{"role": "user", "content": "hi", "tool_calls": [{"id": "call_ok1234", "type": "function", "function": {"name": "f", "arguments": "{}"}}, {"id": "393132333435363738", "type": "function", "function": {"name": "f", "arguments": "{}"}}]},
             {"role": "nine one two three four", "content": "x"}]
     client.post("/v1/chat/completions", headers={"Authorization": "Bearer t"}, json={"model": "m", "messages": msgs})
     sent = up.seen[0]
-    assert sent["messages"][0]["tool_calls"][0]["id"] == "call_ok1" and "call_ok1" not in inspected   # trusted, never inspected
+    assert sent["messages"][0]["tool_calls"][0]["id"] == "call_ok1234" and "call_ok1234" not in inspected   # trusted, never inspected
     assert sent["messages"][0]["tool_calls"][1]["id"] == "[PII_OTHER_1]"                            # digits-only id was inspected and caught
     assert "nine one two three four" in inspected                                                      # unknown role is inspected
+
+
+def test_model_allowlist_and_provider_id_formats():
+    up = FakeUpstream()
+    inspected = []
+    def classifier(text, prompt):
+        inspected.append(text); return []
+    client = TestClient(create_app(upstream=up, token="t", classifier=classifier, model_allowlist=["good-model"]))
+    msgs = [{"role": "assistant", "content": None, "tool_calls": [
+        {"id": "call_Ab12cd34", "type": "function", "function": {"name": "f", "arguments": "{}"}},
+        {"id": "a912345678", "type": "function", "function": {"name": "f", "arguments": "{}"}}]}]
+    client.post("/v1/chat/completions", headers={"Authorization": "Bearer t"}, json={"model": "good-model", "messages": msgs})
+    client.post("/v1/chat/completions", headers={"Authorization": "Bearer t"}, json={"model": "other-9123456789", "messages": []})
+    assert "good-model" not in inspected and "call_Ab12cd34" not in inspected     # allowlisted, untouched
+    assert "a912345678" in inspected and "other-9123456789" in inspected           # shape alone is not trust

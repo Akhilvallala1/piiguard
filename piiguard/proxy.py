@@ -61,37 +61,46 @@ class CrusoeUpstream:
 _ROLE = {"system", "user", "assistant", "tool", "developer", "function"}
 _TYPE = {"text", "input_text", "output_text", "image_url", "input_image", "function", "tool_result", "tool_use", "json_object", "json_schema", "chat.completion", "chat.completion.chunk", "list", "model"}
 _FINISH = {"stop", "length", "tool_calls", "content_filter", "function_call"}
-_IDENT = re.compile(r"\A[A-Za-z][A-Za-z0-9_.:/-]{0,63}\Z")   # must start with a letter
+# Known provider id formats only (OpenAI-style call_/chatcmpl-/fc_/resp_, Anthropic toolu_/msg_). Shape alone is not trust.
+_PROVIDER_ID = re.compile(r"\A(?:call|chatcmpl|fc|resp|toolu|msg|cmpl)[_-][A-Za-z0-9_-]{4,64}\Z")
+_LONG_DIGITS = re.compile(r"\d{6,}")
+DEFAULT_MODEL_ALLOWLIST = [
+    os.environ.get("WORKER_MODEL", "nvidia/nemotron-3.5-lightning-30b-a3b"),
+    os.environ.get("COACH_MODEL", "nvidia/Nemotron-3-Super-120B-A12B"),
+    os.environ.get("FALLBACK_MODEL", "deepseek-ai/Deepseek-V4-Flash"),
+]
 
 
-def _protocol_ok(key: Optional[str], value: str) -> bool:
+def _protocol_ok(key: Optional[str], value: str, model_allowlist: set[str]) -> bool:
     if key == "role":
         return value in _ROLE
     if key in ("type", "object"):
         return value in _TYPE
     if key == "finish_reason":
         return value in _FINISH
-    if key in ("model", "id", "tool_call_id"):
-        return bool(_IDENT.match(value))
+    if key == "model":
+        return value in model_allowlist
+    if key in ("id", "tool_call_id"):
+        return bool(_PROVIDER_ID.match(value)) and not _LONG_DIGITS.search(value)
     return False
 
 
-def _walk(session, node: Any, key: Optional[str] = None) -> Any:
+def _walk(session, node: Any, key: Optional[str], model_allowlist: set[str]) -> Any:
     if isinstance(node, str):
-        if _protocol_ok(key, node) and not session.guard.scan(node, use_classifier=False):
+        if _protocol_ok(key, node, model_allowlist) and not session.guard.scan(node, use_classifier=False):
             return node
         return session.redact(node).text
     if isinstance(node, list):
-        return [_walk(session, x) for x in node]  # the parent key does not carry into containers
+        return [_walk(session, x, None, model_allowlist) for x in node]  # the parent key does not carry into containers
     if isinstance(node, dict):
-        return {k: _walk(session, v, k) for k, v in node.items()}
+        return {k: _walk(session, v, k, model_allowlist) for k, v in node.items()}
     return node
 
 
-def _redact_payload(guard: Guard, payload: dict) -> tuple[dict, dict, list[str]]:
+def _redact_payload(guard: Guard, payload: dict, model_allowlist: set[str]) -> tuple[dict, dict, list[str]]:
     """Redact every string anywhere in the request (messages, tool_calls arguments, tool results, all content parts)."""
     session = guard.session()
-    redacted = _walk(session, payload)
+    redacted = _walk(session, payload, None, model_allowlist)
     return redacted, session.mapping, [f.type for f in session.findings]
 
 
@@ -127,8 +136,10 @@ def _sse(resp: dict):
     yield "data: [DONE]\n\n"
 
 
-def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[str] = None, classifier: Optional[Classifier] = None) -> FastAPI:
+def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[str] = None, classifier: Optional[Classifier] = None,
+               model_allowlist: Optional[list[str]] = None) -> FastAPI:
     upstream = upstream or CrusoeUpstream()
+    allow = set(model_allowlist or [m for m in os.environ.get("MODEL_ALLOWLIST", "").split(",") if m] or DEFAULT_MODEL_ALLOWLIST)
     token = token or os.environ.get("GUARD_PROXY_TOKEN") or secrets.token_urlsafe(24)
     guard_dir = guard_dir or os.path.join(ROOT, "guard")
     app = FastAPI(title="piiguard proxy")
@@ -171,7 +182,7 @@ def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[s
         payload = await request.json()
         guard: Guard = state["guard"]
         want_stream = bool(payload.get("stream"))
-        payload, mapping, types = _redact_payload(guard, payload)
+        payload, mapping, types = _redact_payload(guard, payload, allow)
         payload["stream"] = False
         messages = payload.get("messages") or []
         record("chat", mapping, types, json.dumps(messages[-1].get("content", ""))[:160] if messages else "")
