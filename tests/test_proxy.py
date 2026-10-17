@@ -40,3 +40,16 @@ def test_events_endpoint_reports_redactions():
     client.post("/v1/chat/completions", headers={"Authorization": "Bearer t"}, json={"model": "m", "messages": [{"role": "user", "content": "ssn 912-34-5678"}]})
     ev = client.get("/events", headers={"Authorization": "Bearer t"}).json()
     assert ev[-1]["redactions"] == 1 and ev[-1]["types"] == ["ssn"]
+
+
+def test_upstream_failure_returns_502_json_not_500():
+    class Broken:
+        def chat(self, payload):
+            raise ConnectionError("no route to crusoe")
+        def search(self, q):
+            raise ConnectionError("no route to you.com")
+    client = TestClient(create_app(upstream=Broken(), token="t"), raise_server_exceptions=False)
+    r = client.post("/v1/chat/completions", headers={"Authorization": "Bearer t"}, json={"model": "m", "messages": [{"role": "user", "content": "hi"}]})
+    assert r.status_code == 502 and "no route" in r.json()["error"]
+    r2 = client.get("/you/search", params={"q": "x"}, headers={"Authorization": "Bearer t"})
+    assert r2.status_code == 502

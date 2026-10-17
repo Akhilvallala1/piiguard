@@ -136,6 +136,8 @@ def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[s
             resp = upstream.chat(payload)
         except httpx.HTTPStatusError as e:
             return JSONResponse(status_code=e.response.status_code, content={"error": e.response.text[:500]})
+        except Exception as e:  # noqa: BLE001 - upstream unreachable / misconfigured
+            return JSONResponse(status_code=502, content={"error": f"upstream failure: {e}"[:500]})
         resp = _restore_response(resp, mapping)
         if want_stream:
             return StreamingResponse(_sse(resp), media_type="text/event-stream")
@@ -150,5 +152,7 @@ def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[s
             return _restore_response(upstream.search(red.text), red.mapping)
         except httpx.HTTPStatusError as e:
             return JSONResponse(status_code=e.response.status_code, content={"error": e.response.text[:500]})
+        except Exception as e:  # noqa: BLE001
+            return JSONResponse(status_code=502, content={"error": f"upstream failure: {e}"[:500]})
 
     return app
