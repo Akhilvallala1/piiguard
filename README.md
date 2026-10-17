@@ -75,12 +75,32 @@ the whole point of the loop.
 | 13 | no | 33% → 33% | 0% → 0% | — |  *(rejected)* |
 | 14 | yes | 33% → 17% | 0% → 0% | bfd0300 | Add broad-but-validated detectors for base64, hex, and reversed encoded PII that decode and validate against p |
 | 15 | no | 0% → 0% | 0% → 0% | — | Add detection for hex-encoded PII that may be prefixed with '0x' to catch obfuscated hex strings currently mis *(rejected)* |
+| 17 | no | 60% → 60% | 0% → 0% | — |  *(rejected)* |
+| 18 | no | 60% → 55% | 0% → 8% | — | Add a generic reversed-PII rule that catches reversed claim numbers and adjuster badges (e.g., '2150980-5202-M *(rejected)* |
+| 19 | no | 60% → 40% | 0% → 8% | — | The biggest remaining leak is hex-encoded PII (1.00 leak rate), especially adjuster badges like '41444a2d34383 *(rejected)* |
+| 20 | no | 60% → 55% | 0% → 0% | — | Adding plain-text rules for adjuster badge and claim number lets the existing generic base64, hex, reversed, a *(rejected)* |
 
 **Held-out attacks (never shown to the coach, n=30): leak rate 76.7% → 16.7%. False positives on clean traffic: 0.0% → 0.0%.**
 <!-- generations:end -->
 
 Every accepted generation is a git tag (`git tag --list 'gen-*'`); `git diff gen-0 gen-14 -- guard/` shows
 exactly what the system learned, in plain YAML.
+
+### Industry-specific PII: the insurance pack
+
+What counts as PII depends on the industry. An adjuster badge number is noise to a generic detector and a key to a
+claim file inside an insurer. `piiguard gen-attacks --domain insurance` builds a red team that speaks insurance
+(adjuster badges, claim numbers, policy numbers, plus SSNs and phones) and the same loop runs on it:
+
+<!-- insurance:start -->
+| set | gen-0 rules | current rules |
+|---|---|---|
+| insurance held-out leak rate (n=20) | 90.0% | 65.0% |
+| false positives on clean traffic | 0.0% | 0.0% |
+<!-- insurance:end -->
+
+Presidio on the same prompts catches the phone and the name and walks past the badge and the claim. The demo page
+has an "Insurance claim" preset that shows all four panes on it.
 
 ### Unlearning, with a tripwire
 

@@ -62,6 +62,13 @@ The Crusoe key lives only in the proxy; the sandbox holds a proxy token.
   (`openshell provider update compatible-endpoint --config OPENAI_BASE_URL=...` if it was created with the wrong URL).
 
 ## Q&A ammo
+- "Isn't the classifier expensive?" Only paid for when the text earns it. A router scores what the regex rules left behind and
+  picks skip / Nemotron 3.5 Lightning (~1 s) / Nemotron 3 Super (~2 s). The page prints the route per request. The policy is one
+  pure function; NVIDIA NeMo Switchyard's stage_router is the production home for it.
+- "Why not just use Presidio?" It is on the page, live, on the judge's own prompt. It has no recognizer for an adjuster badge or a
+  claim number, and it flags dates and places as PII on clean traffic. A static detector stays where it is.
+- "Your phone rule missed parenthesized numbers." Yes, that was the hand-written gen-0 rule, and the one human hotfix in the history.
+  Every other rule change was proposed by the coach and accepted by the gate.
 - "Can it unlearn?" Yes, two ways. Rollback is a git tag away. And `piiguard prune` ablates every rule and drops it only if
   nothing changes on train+val; held-out is a tripwire. Live: it found 10 "dead" rules and refused, because held-out leak
   would have gone 16.7% -> 26.7%. A guard should only forget when forgetting is provably free.

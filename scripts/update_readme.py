@@ -29,6 +29,14 @@ def main():
         from piiguard.bench import render_table
         rows = json.loads(bench_path.read_text())["rows"]
         text = section("bench", render_table(rows), text)
+    ins = ROOT / "runs" / "report-insurance.json"
+    if ins.exists():
+        d = json.loads(ins.read_text())
+        hb, ha = d["heldout_before"], d["heldout_after"]
+        body = (f"| set | gen-0 rules | current rules |\n|---|---|---|\n"
+                f"| insurance held-out leak rate (n={hb.get('n','?')}) | {hb['leak_rate']:.1%} | {ha['leak_rate']:.1%} |\n"
+                f"| false positives on clean traffic | {d['fp_before']['fp_rate']:.1%} | {d['fp_after']['fp_rate']:.1%} |")
+        text = section("insurance", body, text)
     README.write_text(text)
     print("README updated")
 
