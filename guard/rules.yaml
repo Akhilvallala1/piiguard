@@ -1,0 +1,12 @@
+# Generation 0 ruleset. Deliberately basic: the coach agent evolves this file.
+version: 0
+rules:
+  - name: ssn
+    pattern: '\b\d{3}-\d{2}-\d{4}\b'
+  - name: email
+    pattern: '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
+  - name: phone_us
+    pattern: '\b(?:\+1[ .-]?)?(?:\(\d{3}\)|\d{3})[ .-]?\d{3}[ .-]?\d{4}\b'
+  - name: credit_card
+    pattern: '\b(?:\d[ -]?){12,15}\d\b'
+    validator: luhn

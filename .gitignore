@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+runs/*.jsonl
+runs/*/
+!runs/.gitkeep
+.pytest_cache/
+dist/
