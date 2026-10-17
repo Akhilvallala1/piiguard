@@ -23,3 +23,15 @@ def test_credit_card_rule_uses_luhn_validator():
     cc = next(r for r in rs.rules if r.name == "credit_card")
     assert cc.validate("4111 1111 1111 1111")
     assert not cc.validate("1234 5678 9012 3456")
+
+
+import pytest
+from piiguard.pii.rules import RuleSet
+
+def test_rejects_nested_quantifier_regex_from_coach():
+    with pytest.raises(ValueError, match="unsafe"):
+        RuleSet.from_yaml_text("version: 1\nrules:\n  - name: x\n    pattern: '(a+)+$'\n")
+
+def test_rejects_overlong_pattern():
+    with pytest.raises(ValueError, match="too long"):
+        RuleSet.from_yaml_text("version: 1\nrules:\n  - name: x\n    pattern: '" + "a" * 600 + "'\n")

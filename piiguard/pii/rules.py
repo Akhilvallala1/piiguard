@@ -25,6 +25,26 @@ def luhn_ok(s: str) -> bool:
 
 VALIDATORS: dict[str, Callable[[str], bool]] = {"luhn": luhn_ok}
 
+MAX_PATTERN_LEN = 400
+# A quantifier applied to a group that itself contains a quantifier: (a+)+, (a*)*, (\d+-?)+ ...
+_NESTED_QUANT = re.compile(r"\((?:[^()\\]|\\.)*[+*}](?:[^()\\]|\\.)*\)[+*{]")
+_PROBE = ("a" * 40 + "-" + "1" * 40 + "@" + "x" * 40 + "\n") * 20
+
+
+def check_pattern_safe(name: str, pattern: str) -> None:
+    """Reject patterns likely to be catastrophic. The coach is an LLM; its regexes are untrusted."""
+    if len(pattern) > MAX_PATTERN_LEN:
+        raise ValueError(f"regex in rule {name!r} too long ({len(pattern)} > {MAX_PATTERN_LEN})")
+    if _NESTED_QUANT.search(pattern):
+        raise ValueError(f"regex in rule {name!r} is unsafe: nested quantifier")
+    import time
+    compiled = re.compile(pattern)
+    t0 = time.perf_counter()
+    for _ in compiled.finditer(_PROBE):
+        pass
+    if time.perf_counter() - t0 > 0.25:
+        raise ValueError(f"regex in rule {name!r} is unsafe: too slow on probe input")
+
 
 @dataclass
 class Rule:
@@ -60,6 +80,7 @@ class RuleSet:
                 regex = re.compile(raw["pattern"], re.IGNORECASE if raw.get("ignore_case") else 0)
             except re.error as e:
                 raise ValueError(f"invalid regex in rule {raw['name']!r}: {e}") from e
+            check_pattern_safe(str(raw["name"]), raw["pattern"])
             rules.append(Rule(name=str(raw["name"]), pattern=raw["pattern"], regex=regex, validator=validator))
         return cls(version=int(data.get("version", 0)), rules=rules, source=text)
 

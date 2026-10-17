@@ -27,3 +27,21 @@ def test_same_value_twice_gets_same_token():
     red = g.redact("call 555-123-4567 or 555-123-4567")
     assert red.text.count("[PII_PHONE_US_1]") == 2
     assert len(red.mapping) == 1
+
+
+from piiguard.pii.guard import Finding, _merge_overlaps
+
+def test_overlapping_findings_are_merged_into_union_span_not_dropped():
+    a = Finding("phone_us", "0123456789", 0, 10, "regex")
+    b = Finding("credit_card", "56789012345", 5, 16, "regex")
+    merged = _merge_overlaps([a, b])
+    assert len(merged) == 1
+    assert (merged[0].start, merged[0].end) == (0, 16)
+
+def test_redaction_of_overlap_removes_both_values_from_text():
+    g = make_guard()
+    # llm classifier says the whole phrase is a name-like span overlapping the regex ssn hit
+    g.classifier = lambda text, prompt: [{"text": "Maria 912-34", "type": "name"}]
+    red = g.redact("Maria 912-34-5678 called")
+    assert "912-34-5678" not in red.text and "Maria" not in red.text
+    assert red.text.endswith(" called")

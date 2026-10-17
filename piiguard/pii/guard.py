@@ -55,7 +55,7 @@ class Guard:
                 while start != -1:
                     found.append(Finding(str(span.get("type", "other")), value, start, start + len(value), "llm"))
                     start = text.find(value, start + 1)
-        return _dedupe_overlaps(found)
+        return _merge_overlaps(found)
 
     def redact(self, text: str) -> Redaction:
         findings = self.scan(text)
@@ -65,12 +65,13 @@ class Guard:
         out: list[str] = []
         cursor = 0
         for f in findings:
-            token = value_to_token.get(f.value)
+            value = text[f.start:f.end]
+            token = value_to_token.get(value)
             if token is None:
                 counters[f.type] = counters.get(f.type, 0) + 1
                 token = f"[PII_{f.type.upper()}_{counters[f.type]}]"
-                value_to_token[f.value] = token
-                mapping[token] = f.value
+                value_to_token[value] = token
+                mapping[token] = value
             out.append(text[cursor:f.start])
             out.append(token)
             cursor = f.end
@@ -84,13 +85,15 @@ class Guard:
         return text
 
 
-def _dedupe_overlaps(findings: list[Finding]) -> list[Finding]:
-    """Keep longest match when spans overlap; return sorted by start."""
+def _merge_overlaps(findings: list[Finding]) -> list[Finding]:
+    """Merge overlapping spans into their union so no partial value survives; sorted by start."""
     findings = sorted(findings, key=lambda f: (f.start, -(f.end - f.start)))
-    kept: list[Finding] = []
-    last_end = -1
+    merged: list[Finding] = []
     for f in findings:
-        if f.start >= last_end:
-            kept.append(f)
-            last_end = f.end
-    return kept
+        if merged and f.start < merged[-1].end:
+            last = merged[-1]
+            if f.end > last.end:
+                last.end = f.end
+            continue
+        merged.append(Finding(f.type, f.value, f.start, f.end, f.source))
+    return merged
