@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 export PATH="$HOME/.nvm/versions/node/v22.23.3/bin:/opt/homebrew/bin:$PATH"
 set -a; . ./.env; set +a
 PY=.venv/bin/python
-pause() { echo; read -r -p "--- [enter] $1 " _; echo; }
+pause() { echo; if [ -t 0 ]; then read -r -p "--- [enter] $1 " _; else echo "--- $1"; fi; echo; }
 
 clear
 echo "piiguard: a PII leak guard that hardens itself"
@@ -32,6 +32,10 @@ for l in open('runs/history.jsonl'):
     if not r['accepted']: print(f\"  gen {r['gen']}: {r['reason'][:90]}\")
 " | head -6
 
-pause "5/5 same data, other systems"
-$PY -m piiguard.cli bench --set heldout --llm 2>/dev/null | head -8
+pause "5/5 same data, other systems (saved run: runs/bench.json; pass --rerun to recompute live)"
+if [ "${1:-}" = "--rerun" ]; then
+  $PY -m piiguard.cli bench --set heldout --llm 2>/dev/null | head -9
+else
+  $PY -c "import json; from piiguard.bench import render_table; print(render_table(json.load(open('runs/bench.json'))['rows']))"
+fi
 echo; echo "done."
