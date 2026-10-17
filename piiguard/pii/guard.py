@@ -40,13 +40,13 @@ class Guard:
         prompt = prompt_file.read_text() if prompt_file.exists() else ""
         return cls(load_rules(path / "rules.yaml"), prompt, classifier)
 
-    def scan(self, text: str) -> list[Finding]:
+    def scan(self, text: str, use_classifier: bool = True) -> list[Finding]:
         found: list[Finding] = []
         for rule in self.rules.rules:
             for m in rule.regex.finditer(text):
                 if rule.validate(m.group(0)):
                     found.append(Finding(rule.name, m.group(0), m.start(), m.end(), "regex"))
-        if self.classifier is not None:
+        if use_classifier and self.classifier is not None:
             for span in self.classifier(text, self.prompt):
                 value = str(span.get("text", ""))
                 if not value:

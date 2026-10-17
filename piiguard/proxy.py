@@ -64,8 +64,8 @@ _IDENT = re.compile(r"^[A-Za-z0-9_.:/-]{1,64}$")
 
 def _walk(session, node: Any, key: Optional[str] = None) -> Any:
     if isinstance(node, str):
-        if key in _SKIP_KEYS and _IDENT.match(node):
-            return node
+        if key in _SKIP_KEYS and _IDENT.match(node) and not session.guard.scan(node, use_classifier=False):
+            return node  # identifier-shaped AND no rule fires: safe to pass through untouched
         return session.redact(node).text
     if isinstance(node, list):
         return [_walk(session, x) for x in node]  # the parent key does not carry into containers
