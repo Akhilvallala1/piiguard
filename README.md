@@ -106,7 +106,9 @@ piiguard improve --generations 6 --llm       # coach + gate loop, commits gen-N 
 piiguard report                              # history + held-out before/after
 ```
 
-Live demo pieces:
+Live demo pieces (the proxy also serves a presentation page at `http://127.0.0.1:8787/demo?token=<GUARD_PROXY_TOKEN>`:
+type any prompt, it goes through the real guard and Crusoe, and the page shows what would have left, what left, and
+what came back; the numbers below it are evidence, the live request is the point):
 
 ```bash
 export GUARD_PROXY_TOKEN="$(openssl rand -hex 16)"

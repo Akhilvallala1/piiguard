@@ -1,0 +1,168 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>piiguard live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#050505;--ink:#F4F1EA;--mute:rgba(244,241,234,.55);--hair:rgba(255,255,255,.09);--hair2:rgba(255,255,255,.16);--shell:rgba(255,255,255,.035);--core:rgba(12,12,12,.82);--leak:#FF7A66;--tok:#7BE0CF;--ease:cubic-bezier(.32,.72,0,1)}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg)}
+body{min-height:100dvh;background:var(--bg);color:var(--ink);font-family:"Geist",ui-sans-serif,system-ui,sans-serif;font-size:18px;line-height:1.5;padding:44px 64px 120px;position:relative;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background:
+  radial-gradient(900px 600px at 12% 0%, rgba(123,224,207,.14), transparent 60%),
+  radial-gradient(800px 560px at 95% 18%, rgba(255,122,102,.10), transparent 60%),
+  radial-gradient(700px 500px at 50% 110%, rgba(123,224,207,.06), transparent 60%)}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.035;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+main{position:relative;z-index:2;max-width:1680px;margin:0 auto}
+.mono{font-family:"Geist Mono",ui-monospace,Menlo,monospace}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--hair2);border-radius:999px;padding:6px 12px;font:500 11px/1 "Geist Mono",monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--mute)}
+.eyebrow i{width:6px;height:6px;border-radius:50%;background:var(--tok);box-shadow:0 0 12px var(--tok)}
+header{display:grid;grid-template-columns:1.2fr .8fr;gap:48px;align-items:end;margin-bottom:36px}
+header h1{font-size:clamp(34px,3.1vw,52px);font-weight:600;letter-spacing:-.03em;line-height:1.05;margin-top:18px;max-width:18ch}
+header p{color:var(--mute);margin-top:14px;font-size:18px;max-width:64ch}
+.chips{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.chip{font:500 13px "Geist Mono",monospace;border:1px solid var(--hair2);border-radius:999px;padding:9px 14px;color:var(--mute);background:var(--shell);backdrop-filter:none;white-space:nowrap}
+.chip.ok{color:var(--tok);border-color:rgba(123,224,207,.45)}
+/* double bezel */
+.shell{background:var(--shell);border:1px solid var(--hair);border-radius:2rem;padding:.5rem;box-shadow:0 30px 80px -40px rgba(0,0,0,.9)}
+.core{background:var(--core);border-radius:calc(2rem - .5rem);padding:28px 30px;box-shadow:inset 0 1px 1px rgba(255,255,255,.08);height:100%}
+.core h2{font:500 12px/1 "Geist Mono",monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--mute);margin-bottom:18px}
+.bento{display:grid;grid-template-columns:repeat(12,1fr);gap:24px}
+.span8{grid-column:span 8} .span4{grid-column:span 4} .span6{grid-column:span 6} .span12{grid-column:span 12}
+textarea{width:100%;min-height:124px;background:rgba(255,255,255,.04);color:var(--ink);border:1px solid var(--hair2);border-radius:1.25rem;padding:18px 20px;font:17px/1.6 "Geist Mono",monospace;resize:vertical;transition:border-color .5s var(--ease),box-shadow .5s var(--ease)}
+textarea:focus{outline:none;border-color:rgba(123,224,207,.6);box-shadow:0 0 0 4px rgba(123,224,207,.12)}
+.actions{display:flex;gap:12px;align-items:center;margin-top:16px;flex-wrap:wrap}
+.cta{display:inline-flex;align-items:center;gap:14px;background:var(--ink);color:#0b0b0b;border:0;border-radius:999px;padding:8px 8px 8px 22px;font:600 16px "Geist",sans-serif;cursor:pointer;transition:transform .5s var(--ease),opacity .5s var(--ease)}
+.cta .ico{width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.08);display:grid;place-items:center;font-size:16px;transition:transform .6s var(--ease)}
+.cta:hover .ico{transform:translate(2px,-1px) scale(1.06)} .cta:active{transform:scale(.98)} .cta:disabled{opacity:.55;cursor:wait}
+.ghost{background:transparent;color:var(--ink);border:1px solid var(--hair2);border-radius:999px;padding:12px 18px;font:500 15px "Geist",sans-serif;cursor:pointer;transition:background .5s var(--ease),border-color .5s var(--ease),transform .5s var(--ease)}
+.ghost:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.3)} .ghost:active{transform:scale(.98)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}
+.pane{background:rgba(255,255,255,.035);border:1px solid var(--hair);border-radius:1.25rem;padding:20px 22px;min-height:168px;transition:border-color .6s var(--ease)}
+.pane h3{font:500 12px/1 "Geist Mono",monospace;letter-spacing:.14em;text-transform:uppercase;margin-bottom:14px}
+.pane.bad h3{color:var(--leak)} .pane.good h3{color:var(--tok)}
+.pane .t{font-family:"Geist Mono",monospace;font-size:17px;line-height:1.65;white-space:pre-wrap;word-break:break-word}
+.leak{color:var(--leak);text-decoration:underline;text-decoration-color:rgba(255,122,102,.7);text-underline-offset:4px;text-decoration-thickness:2px}
+.tok{color:#06110f;background:var(--tok);border-radius:6px;padding:1px 7px;font-weight:600}
+.verdict{margin-top:14px;font-size:19px;font-weight:600;letter-spacing:-.01em}
+.verdict.bad{color:var(--leak)} .verdict.good{color:var(--tok)}
+.reply{margin-top:16px;padding:16px 18px;border-radius:1.25rem;background:rgba(123,224,207,.06);border:1px solid rgba(123,224,207,.18)}
+.reply b{display:block;font:500 12px/1 "Geist Mono",monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin-bottom:10px;font-weight:500}
+#search.reply{background:rgba(255,255,255,.03);border-color:var(--hair)}
+#feed{font-family:"Geist Mono",monospace;font-size:14px;line-height:1.6;max-height:640px;overflow:auto;padding-right:6px}
+#feed div{padding:10px 0;border-bottom:1px solid var(--hair);animation:fadeUp .8s var(--ease) both}
+#feed .ts{color:var(--mute);margin-right:10px}
+#feed .n{color:var(--tok);font-weight:600}
+.empty{color:var(--mute)}
+.big{font-family:"Geist Mono",monospace;font-size:clamp(48px,4.6vw,78px);font-weight:600;line-height:1;letter-spacing:-.04em;margin:10px 0 8px;display:flex;align-items:baseline;flex-wrap:wrap}
+.big small{font-size:.38em;color:var(--mute);margin-left:4px}
+.big .arrow{font-size:.5em;color:var(--mute);margin:0 14px}
+.sub{color:var(--mute);font-size:15px;line-height:1.5}
+table{border-collapse:collapse;width:100%;font-family:"Geist Mono",monospace;font-size:14px;margin-top:4px}
+td,th{text-align:left;padding:9px 10px;border-bottom:1px solid var(--hair);vertical-align:top}
+th{color:var(--mute);font-weight:500;letter-spacing:.06em;text-transform:uppercase;font-size:11px}
+tr.acc td:nth-child(2){color:var(--tok)} tr.rej td:nth-child(2){color:var(--leak)}
+tr.us td{color:var(--tok)}
+.prose p{color:rgba(244,241,234,.8);font-size:17px}
+.prose p+p{margin-top:14px}
+details summary{cursor:pointer;color:var(--mute);font-size:15px;margin-top:14px}
+footer{margin-top:64px;color:var(--mute);font-size:14px;max-width:70ch}
+.reveal{opacity:0;transform:translateY(28px);filter:blur(6px);transition:opacity .9s var(--ease),transform .9s var(--ease),filter .9s var(--ease)}
+.reveal.in{opacity:1;transform:none;filter:none}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.reveal{transition:none;opacity:1;transform:none;filter:none}#feed div{animation:none}}
+@media (max-width:1100px){body{padding:40px 16px 80px}header{grid-template-columns:1fr;gap:20px}.chips{justify-content:flex-start}.span8,.span4,.span6,.span12{grid-column:span 12}.two{grid-template-columns:1fr}}
+</style></head><body><main>
+<header class="reveal">
+  <div><span class="eyebrow"><i></i> live · nemoclaw sandbox · crusoe · you.com</span>
+  <h1>The sandbox decides where bytes go.<br>piiguard decides what is in them.</h1>
+  <p>Type anything an agent might send. It goes through the live NemoClaw sandbox route, the guard, and Crusoe. You see what would have left, what actually left, and what the agent got back.</p></div>
+  <div class="chips"><span class="chip" id="chip-rules">rules …</span><span class="chip" id="chip-clf">classifier …</span><span class="chip" id="chip-sb">sandbox piiguard-agent · route: guard only</span></div>
+</header>
+
+<div class="bento">
+  <section class="shell span8 reveal"><div class="core">
+    <h2>Send a request the way an agent would</h2>
+    <textarea id="prompt">Customer Maria Chen (SSN 912-34-5678, email maria.chen@example.com, card 4111 1111 1111 1111) is asking whether her card is eligible for the 2026 cashback program. Draft a two-sentence reply.</textarea>
+    <div class="actions">
+      <button class="cta" id="go"><span>Send through the guard</span><span class="ico">↗</span></button>
+      <button class="ghost" data-fill="Ticket #48213: Devon Okafor called from (555) 010-2345, DOB 11/02/1979, about a charge on 5555 5555 5555 4444.">Support ticket</button>
+      <button class="ghost" data-fill="ssn is nine five six dash seven eight dash nine zero one two, card MTIzNC01Njc4LTkwMTItMzQ1Ng== please verify">Obfuscated</button>
+      <button class="ghost" data-fill="Order #48213 shipped on 2026-10-17, arrives in 3-5 days. Invoice total $1,284.50, port 8080, build 4m12s.">Clean traffic</button>
+    </div>
+    <div class="two">
+      <div class="pane bad"><h3>Without piiguard · would leave the machine</h3><div class="t" id="direct"><span class="empty">waiting…</span></div><div class="verdict bad" id="vdirect"></div></div>
+      <div class="pane good"><h3>With piiguard · what actually left</h3><div class="t" id="guarded"><span class="empty">waiting…</span></div><div class="verdict good" id="vguarded"></div></div>
+    </div>
+    <div class="reply" id="reply" hidden><b>What the agent received back · values restored on the host</b><div class="t mono" id="replytext"></div></div>
+    <div class="reply" id="search" hidden><b>Web search query that left · You.com</b><div class="t mono" id="searchtext"></div></div>
+  </div></section>
+
+  <aside class="shell span4 reveal"><div class="core">
+    <h2>Egress log · every request that left this host</h2>
+    <div id="feed"><div class="empty">nothing has left yet</div></div>
+  </div></aside>
+
+  <section class="shell span4 reveal"><div class="core"><h2>Held-out attacks the coach never saw · leak rate</h2><div class="big"><span id="h-before">–</span><small>%</small><span class="arrow">→</span><span id="h-after">–</span><small>%</small></div><div class="sub" id="h-sub">rules only, no model call · false positives 0% → 0%</div></div></section>
+  <section class="shell span4 reveal"><div class="core"><h2>What the loop produced</h2><div class="big" id="rulecount">–</div><div class="sub" id="rulesub">regex rules in guard/rules.yaml · every accepted generation is a git tag</div></div></section>
+  <section class="shell span4 reveal"><div class="core"><h2>Same data · other systems</h2><table id="bench"></table></div></section>
+
+  <section class="shell span6 reveal"><div class="core"><h2>Generations · what the coach proposed, what the gate decided</h2><table id="hist"></table></div></section>
+  <section class="shell span6 reveal"><div class="core prose"><h2>How it works</h2>
+    <p>A Nemotron 3 Super red team hides PII twelve ways inside search queries, tool calls, logs and code. A Nemotron 3 Super coach reads every leak and rewrites the regex rules. A gate keeps a change only if validation leaks drop and clean traffic stays clean. Accepted generations are committed and tagged; rejected ones are reverted and logged. Held-out attacks are scored but never shown to the coach.</p>
+    <p>The rules are the cheap path, about a millisecond and no tokens. A Nemotron 3.5 Lightning classifier sits behind them as the expensive safety net. The loop moves the cheap layer toward what the expensive layer catches.</p>
+    <p>Unlearning has a tripwire: pruning drops a rule only if nothing changes on train and validation, then checks held-out before committing. Here it found ten dead-looking rules and refused, because held-out leak would have risen.</p>
+    <details><summary>Current rule names</summary><div class="mono sub" id="rulenames" style="margin-top:8px"></div></details>
+  </div></section>
+</div>
+<footer class="reveal">Built on 2026-10-17 at The Recursive Agents Hackathon. Crusoe Managed Inference · NVIDIA Nemotron 3.5 Lightning and 3 Super · NemoClaw / OpenShell · You.com · github.com/Akhilvallala1/piiguard</footer>
+</main>
+<script>
+const TOKEN = new URLSearchParams(location.search).get('token') || localStorage.getItem('piiguard_token') || '';
+if (TOKEN) try { localStorage.setItem('piiguard_token', TOKEN) } catch (e) {}
+const H = {'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json'};
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const tokify = s => esc(s).replace(/\[PII_[A-Z_]+_\d+\]/g, m => `<span class="tok">${m}</span>`);
+function markLeaks(text, spans){ let h = esc(text); for (const sp of spans){ h = h.split(esc(sp.value)).join(`<span class="leak">${esc(sp.value)}</span>`);} return h; }
+
+async function loadData(){
+  const r = await fetch('/demo/data', {headers: H}); if (!r.ok) return;
+  const d = await r.json();
+  document.getElementById('chip-rules').textContent = `rules v${d.rules.version} · ${d.rules.count} rules`;
+  const c = document.getElementById('chip-clf'); c.textContent = d.classifier ? 'Nemotron 3.5 Lightning classifier: on' : 'classifier: off (rules only)'; c.classList.toggle('ok', d.classifier);
+  document.getElementById('chip-sb').classList.add('ok');
+  if (d.heldout.before != null){ document.getElementById('h-before').textContent = (d.heldout.before*100).toFixed(1); document.getElementById('h-after').textContent = (d.heldout.after*100).toFixed(1); }
+  document.getElementById('rulecount').textContent = d.rules.count;
+  document.getElementById('rulesub').textContent = `regex rules in guard/rules.yaml · tags ${d.tags.join(', ')}`;
+  document.getElementById('rulenames').textContent = d.rules.names.join(' · ');
+  document.getElementById('bench').innerHTML = '<tr><th>system</th><th>leak</th><th>false pos.</th><th>ms</th></tr>' + d.bench.map(r => `<tr class="${/piiguard gen-14/.test(r.system)?'us':''}"><td>${esc(r.system.replace(' (no content layer)','').replace(' (default recognizers)',' default').replace(' (scoped: SSN, email, phone, card)',' scoped').replace(' (hand-written rules)','').replace(' rules (self-improved, no model call)',' rules').replace(' rules + Nemotron 3.5 Lightning classifier',' + classifier'))}</td><td>${(r.leak_rate*100).toFixed(1)}%</td><td>${(r.fp_rate*100).toFixed(0)}%</td><td>${Math.round(r.ms_per_text||0)}</td></tr>`).join('');
+  document.getElementById('hist').innerHTML = '<tr><th>gen</th><th>kept</th><th>validation leak</th><th>false pos.</th><th>why</th></tr>' + d.history.map(r => `<tr class="${r.accepted?'acc':'rej'}"><td>${r.gen}</td><td>${r.accepted?'yes':'no'}</td><td>${(r.val_before.leak_rate*100).toFixed(0)}% → ${(r.val_after.leak_rate*100).toFixed(0)}%</td><td>${(r.fp_after.fp_rate*100).toFixed(0)}%</td><td>${esc((r.accepted ? r.rationale : r.reason.replace('rejected: ','')) || '').slice(0,90)}</td></tr>`).join('');
+}
+async function loadFeed(){
+  const r = await fetch('/events', {headers: H}); if (!r.ok) return;
+  const ev = await r.json(); const f = document.getElementById('feed');
+  if (!ev.length){ f.innerHTML = '<div class="empty">nothing has left yet</div>'; return; }
+  f.innerHTML = ev.slice(-40).reverse().map(e => `<div><span class="ts">${e.ts}</span><span class="n">${e.redactions}</span> redacted ${e.types.length? '('+e.types.join(', ')+')':''} via ${e.route} → ${tokify(e.preview.replace(/^"|"$/g,''))}</div>`).join('');
+}
+async function run(){
+  const btn = document.getElementById('go'); btn.disabled = true; btn.querySelector('span').textContent = 'Sending…';
+  const prompt = document.getElementById('prompt').value;
+  document.getElementById('direct').innerHTML = '<span class="empty">…</span>'; document.getElementById('guarded').innerHTML = '<span class="empty">…</span>';
+  document.getElementById('reply').hidden = true; document.getElementById('search').hidden = true;
+  try {
+    const r = await fetch('/demo/run', {method:'POST', headers:H, body: JSON.stringify({prompt})});
+    const d = await r.json();
+    document.getElementById('direct').innerHTML = markLeaks(d.direct.text, d.direct.spans);
+    document.getElementById('vdirect').textContent = d.direct.spans.length ? `${d.direct.spans.length} PII value${d.direct.spans.length>1?'s':''} would leave. The sandbox policy allows it.` : 'No PII found. This would leave as-is.';
+    document.getElementById('guarded').innerHTML = tokify(d.guarded.left);
+    document.getElementById('vguarded').textContent = d.guarded.tokens.length ? `0 PII values left. ${d.guarded.tokens.length} token${d.guarded.tokens.length>1?'s':''} held on this host.` : 'Clean traffic passes through untouched.';
+    if (d.guarded.reply || d.guarded.error){ document.getElementById('reply').hidden = false; document.getElementById('replytext').textContent = d.guarded.reply || d.guarded.error; }
+    document.getElementById('search').hidden = false; document.getElementById('searchtext').innerHTML = tokify(d.guarded.search_left);
+  } catch (e) { document.getElementById('guarded').textContent = 'request failed: ' + e; }
+  btn.disabled = false; btn.querySelector('span').textContent = 'Send through the guard'; loadFeed();
+}
+document.getElementById('go').addEventListener('click', run);
+document.querySelectorAll('button[data-fill]').forEach(b => b.addEventListener('click', () => { document.getElementById('prompt').value = b.dataset.fill; }));
+loadData(); loadFeed(); setInterval(loadFeed, 2500);
+const io = new IntersectionObserver(es => es.forEach((e,i) => { if (e.isIntersecting){ e.target.style.transitionDelay = (Math.min(i,6)*70)+'ms'; e.target.classList.add('in'); io.unobserve(e.target);} }), {threshold:.08});
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script></body></html>

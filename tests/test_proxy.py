@@ -149,3 +149,24 @@ def test_crusoe_upstream_retries_transient_429_then_succeeds(monkeypatch):
     up.backoff = 0
     assert up.chat({"model": "m", "messages": []})["choices"][0]["message"]["content"] == "ok"
     assert calls["n"] == 3
+
+
+def test_demo_page_and_data_are_served():
+    client = TestClient(create_app(upstream=FakeUpstream(), token="t"))
+    page = client.get("/demo")
+    assert page.status_code == 200 and "piiguard" in page.text and "text/html" in page.headers["content-type"]
+    data = client.get("/demo/data", headers={"Authorization": "Bearer t"}).json()
+    assert {"history", "heldout", "bench", "rules", "tags"} <= set(data)
+
+
+def test_demo_run_shows_what_would_leave_versus_what_left():
+    up = FakeUpstream()
+    client = TestClient(create_app(upstream=up, token="t"))
+    r = client.post("/demo/run", headers={"Authorization": "Bearer t"}, json={"prompt": "Call Maria at 555-010-1234, SSN 912-34-5678"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["direct"]["text"] == "Call Maria at 555-010-1234, SSN 912-34-5678"
+    assert body["guarded"]["left"] == "Call Maria at [PII_PHONE_US_1], SSN [PII_SSN_1]"
+    assert "912-34-5678" in body["guarded"]["reply"]            # restored for the agent
+    assert "912-34-5678" not in json.dumps(up.seen)             # never reached upstream
+    assert body["guarded"]["search_left"].startswith("Call Maria at [PII_PHONE_US_1]")

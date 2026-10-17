@@ -13,10 +13,11 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 import logging
+from pathlib import Path
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
 from .pii.guard import Classifier, Guard
 
@@ -183,6 +184,51 @@ def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[s
     @app.get("/events", dependencies=[Depends(auth)])
     def events():
         return state["events"]
+
+    # ---- demo surface (served by the proxy so the live request goes through the real guard) ----
+    @app.get("/demo")
+    def demo_page():
+        return HTMLResponse((Path(ROOT) / "piiguard" / "static" / "demo.html").read_text())
+
+    @app.get("/demo/data", dependencies=[Depends(auth)])
+    def demo_data():
+        import subprocess
+        runs = Path(ROOT) / "runs"
+        hist = [json.loads(l) for l in (runs / "history.jsonl").read_text().splitlines() if l.strip()] if (runs / "history.jsonl").exists() else []
+        rep = json.loads((runs / "report.json").read_text()) if (runs / "report.json").exists() else {}
+        bench = json.loads((runs / "bench.json").read_text())["rows"] if (runs / "bench.json").exists() else []
+        try:
+            tags = subprocess.run(["git", "tag", "--list", "gen-*"], cwd=ROOT, capture_output=True, text=True).stdout.split()
+        except Exception:  # noqa: BLE001
+            tags = []
+        g: Guard = state["guard"]
+        return {"history": [{k: v for k, v in r.items() if k != "proposal"} for r in hist],
+                "heldout": {"before": rep.get("heldout_before", {}).get("leak_rate"), "after": rep.get("heldout_after", {}).get("leak_rate"),
+                            "fp_before": rep.get("fp_before", {}).get("fp_rate"), "fp_after": rep.get("fp_after", {}).get("fp_rate")},
+                "bench": bench, "rules": {"version": g.rules.version, "count": len(g.rules.rules), "names": [r.name for r in g.rules.rules]},
+                "tags": tags, "classifier": state["classifier"] is not None}
+
+    @app.post("/demo/run", dependencies=[Depends(auth)])
+    async def demo_run(request: Request):
+        body = await request.json()
+        prompt = str(body.get("prompt", ""))[:4000]
+        model = str(body.get("model") or next(iter(allow)))
+        guard: Guard = state["guard"]
+        payload = {"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": 300,
+                   "chat_template_kwargs": {"enable_thinking": False}}
+        red_payload, mapping, types = _redact_payload(guard, payload, allow)
+        left = red_payload["messages"][0]["content"]
+        record("chat", mapping, types, json.dumps(left)[:160])
+        reply, error = "", None
+        try:
+            resp = _restore_response(upstream.chat(red_payload), mapping)
+            reply = (resp.get("choices") or [{}])[0].get("message", {}).get("content") or ""
+        except Exception as e:  # noqa: BLE001
+            error = f"upstream failure: {type(e).__name__}"
+        search_left = guard.session().redact(prompt).text
+        spans = [{"value": v, "type": t[5:].rsplit("_", 1)[0].lower()} for t, v in mapping.items()]
+        return {"direct": {"text": prompt, "spans": spans},
+                "guarded": {"left": left, "tokens": list(mapping), "types": sorted(set(types)), "reply": reply, "error": error, "search_left": search_left}}
 
     @app.get("/v1/models", dependencies=[Depends(auth)])
     def models():
