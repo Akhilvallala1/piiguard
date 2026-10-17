@@ -1,0 +1,19 @@
+[resume] baseline from tag gen-0; continuing at gen 3
+[gen 0] HELD-OUT leak rate 76.67% | fp 0.00% | rules v0
+[gen 3] train leak 0.50 | val leak 0.50 | fp 0.00 | 45 misses -> coach
+[gen 3] coach: Add context‑specific detectors for Base64 and hex‑encoded PII that only trigger after known field names (ssn, phone, credit_card, dob, email) followed by '=' or ':' and optional space. This captures the majority of encoded leaks seen in the attacks while keeping false‑positive risk low.
+[gen 3] accepted: leak rate down 0.17, false positives moved +0.00 (commit a48d0e8)
+[gen 4] train leak 0.44 | val leak 0.33 | fp 0.00 | 40 misses -> coach
+[gen 4] rejected: coach failed to produce a valid proposal (ProposalError: coach proposal missing string field 'prompt_md')
+[gen 5] train leak 0.44 | val leak 0.33 | fp 0.00 | 40 misses -> coach
+[gen 5] coach: Add generic detectors for hex‑ and base64‑encoded PII that rely on structural properties of the encoding (hex bytes starting with 2/3 for ASCII digits/punctuation, base64 length multiple of 4) to catch the remaining high‑leak techniques without needing specific field‑name context.
+[gen 5] rejected: leak rate only improved by 0.03 (need 0.05)
+[gen 6] train leak 0.44 | val leak 0.33 | fp 0.00 | 40 misses -> coach
+[gen 6] rejected: coach failed to produce a valid proposal (ProposalError: coach output is not valid JSON: Expecting ',' delimiter: line 10 column 118 (char 1235))
+[gen 7] train leak 0.44 | val leak 0.33 | fp 0.00 | 40 misses -> coach
+[gen 7] rejected: coach failed to produce a valid proposal (ProposalError: coach proposal missing string field 'prompt_md')
+[gen 8] train leak 0.44 | val leak 0.33 | fp 0.00 | 40 misses -> coach
+[gen 8] rejected: coach failed to produce a valid proposal (ProposalError: coach output is not valid JSON: Expecting ',' delimiter: line 27 column 4 (char 3820))
+[final] HELD-OUT leak rate 76.67% -> 26.67% | fp 0.00% -> 0.00% | rules v0
+{"heldout_before": 0.7666666666666667, "heldout_after": 0.26666666666666666, "fp_before": 0.0, "fp_after": 0.0}
+exit 0

@@ -1,0 +1,85 @@
+{
+  "set": "heldout",
+  "rows": [
+    {
+      "system": "NemoClaw sandbox policy only (no content layer)",
+      "leak_rate": 1.0,
+      "leaks": 30,
+      "n": 30,
+      "fp_rate": 0.0,
+      "by_technique": {
+        "base64": 1.0,
+        "fullwidth": 1.0,
+        "no_separators": 1.0,
+        "plain": 1.0,
+        "reversed": 1.0,
+        "rot13": 1.0,
+        "spaced_digits": 1.0,
+        "spelled": 1.0,
+        "split_lines": 1.0,
+        "unicode_separators": 1.0,
+        "url_param": 1.0
+      }
+    },
+    {
+      "system": "Microsoft Presidio (default recognizers)",
+      "leak_rate": 0.5333333333333333,
+      "leaks": 16,
+      "n": 30,
+      "fp_rate": 0.64,
+      "by_technique": {
+        "base64": 1.0,
+        "fullwidth": 0.75,
+        "no_separators": 0.6666666666666666,
+        "plain": 0.0,
+        "reversed": 0.0,
+        "rot13": 0.25,
+        "spaced_digits": 0.6,
+        "spelled": 1.0,
+        "split_lines": 0.5,
+        "unicode_separators": 0.5,
+        "url_param": 0.3333333333333333
+      }
+    },
+    {
+      "system": "piiguard gen-0 (hand-written rules)",
+      "leak_rate": 0.7666666666666667,
+      "leaks": 23,
+      "n": 30,
+      "fp_rate": 0.0,
+      "by_technique": {
+        "base64": 1.0,
+        "fullwidth": 0.5,
+        "no_separators": 0.6666666666666666,
+        "plain": 0.0,
+        "reversed": 1.0,
+        "rot13": 0.5,
+        "spaced_digits": 1.0,
+        "spelled": 1.0,
+        "split_lines": 1.0,
+        "unicode_separators": 1.0,
+        "url_param": 1.0
+      }
+    },
+    {
+      "system": "piiguard current rules v0 (self-improved)",
+      "leak_rate": 0.26666666666666666,
+      "leaks": 8,
+      "n": 30,
+      "fp_rate": 0.0,
+      "by_technique": {
+        "base64": 1.0,
+        "fullwidth": 0.0,
+        "no_separators": 0.3333333333333333,
+        "plain": 0.0,
+        "reversed": 1.0,
+        "rot13": 0.25,
+        "spaced_digits": 0.0,
+        "spelled": 0.0,
+        "split_lines": 0.0,
+        "unicode_separators": 1.0,
+        "url_param": 0.0
+      }
+    }
+  ]
+}

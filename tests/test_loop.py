@@ -58,3 +58,11 @@ def test_coach_failure_is_recorded_as_rejected_generation_not_crash(tmp_path):
     assert rec["accepted"] is False and "coach" in rec["reason"]
     assert (root / "guard" / "prompt.md").read_text() == "v0\n"
     assert (root / "runs" / "history.jsonl").exists()
+
+
+def test_missing_prompt_in_proposal_keeps_current_prompt(tmp_path):
+    root = _repo(tmp_path)
+    coach = lambda misses, r, p, s: Proposal("rules only", BETTER_RULES, None, RuleSet.from_yaml_text(BETTER_RULES))
+    rec = run_generation(root, gen=1, train=ATTACKS, val=ATTACKS, clean=CLEAN, coach_fn=coach)
+    assert rec["accepted"] is True
+    assert (root / "guard" / "prompt.md").read_text() == "v0\n"

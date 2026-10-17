@@ -28,3 +28,9 @@ def test_accepts_rules_as_json_list_and_serializes_single_quoted_yaml():
     assert p.rules.rules[0].regex.search("9 7 8 - 9 0 - 1 2 3 4".replace("-", "")) or True  # compiled without error
     assert "'" in p.rules_yaml and '"' not in p.rules_yaml  # our serializer, single quoted, no yaml escaping hazards
     assert p.rules.rules[1].validator == "luhn"
+
+
+def test_prompt_md_is_optional_and_means_keep_current():
+    raw = '{"rationale": "rules only", "rules": [{"name": "ssn", "pattern": "\\\\b\\\\d{3}-\\\\d{2}-\\\\d{4}\\\\b"}]}'
+    p = parse_proposal(raw)
+    assert p.prompt_md is None

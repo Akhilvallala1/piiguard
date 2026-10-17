@@ -48,7 +48,7 @@ def run_generation(root: str | Path, gen: int, train: list[dict], val: list[dict
         return record
     log(f"[gen {gen}] coach: {proposal.rationale}")
 
-    repo.stage(proposal.rules_yaml, proposal.prompt_md)
+    repo.stage(proposal.rules_yaml, proposal.prompt_md if proposal.prompt_md is not None else prompt_md)
     candidate = Guard.from_dir(repo.guard_dir, classifier)
     val_after, clean_after = _scores(candidate, val, clean)
     decision = decide({"leak_rate": val_before["leak_rate"], "fp_rate": clean_before["fp_rate"]},

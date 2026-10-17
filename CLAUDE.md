@@ -11,8 +11,8 @@ Hackathon rules that constrain design: no dashboards as the main feature, no bas
 ## Commands
 
 ```bash
-# one-time setup (the .venv exists but is empty until this runs)
-.venv/bin/python -m pip install -e ".[dev]"
+# one-time setup
+uv venv --python 3.12 && uv pip install -e ".[dev]"
 cp .env.example .env   # fill in CRUSOE_API_KEY, YDC_API_KEY; keep keys single-quoted (they may contain $)
 
 # tests
@@ -24,11 +24,24 @@ cp .env.example .env   # fill in CRUSOE_API_KEY, YDC_API_KEY; keep keys single-q
 .venv/bin/piiguard models                        # list Crusoe models to confirm WORKER_MODEL / COACH_MODEL ids
 ```
 
-Python >= 3.11 (venv is 3.12). Build backend is hatchling; `pytest` is the only dev dep.
+Python >= 3.11 (venv is 3.12). Build backend is hatchling; `pytest` is the only dev dep. Runtime deps: openai, pyyaml, httpx, fastapi, uvicorn, regex.
 
 ## Current state
 
-The repo was built test-first. `tests/` fully specifies the public API of the core modules; the `piiguard/` package currently contains only empty `__init__.py` files, and `guard/`, `data/attacks/`, `data/clean/`, `nemoclaw/`, `scripts/` are empty directories. When implementing, make the existing tests pass without editing them unless the test itself is wrong.
+Fully implemented and live-tested against Crusoe (2026-10-17 midday). 74 tests pass (`.venv/bin/pytest`).
+Keys live in `.env` (gitignored, loaded by `piiguard/env.py`); confirmed model ids are
+`nvidia/Nemotron-3.5-Lightning-30B-A3B` (classifier) and `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B` (coach).
+You.com REST that accepts the key is `https://api.you.com/v1/search?query=` with `X-API-Key`.
+
+Loop status: `git tag --list 'gen-*'` shows accepted generations; `runs/history.jsonl` has every proposal with
+its verdict; `piiguard report --markdown` renders the README table. Resume a run with
+`piiguard improve --start-gen N` (baseline is re-read from the `gen-0` tag).
+
+Lessons already baked in (do not regress): the coach must be told whether the LLM classifier is enabled;
+the coach returns rules as a JSON list and we serialize YAML ourselves (single-quoted); rules compile on the
+`regex` engine with hard timeouts for both the safety probe and runtime scans (fail closed on timeout);
+a coach failure is a rejected generation, never a crash; never `pkill -f` on a pattern that matches the
+loop's parent shell.
 
 ## Architecture
 
@@ -55,8 +68,8 @@ The system is a closed loop: **red team → guard → eval → coach → gate �
 - `COACH_MODEL` (Nemotron 3 Super 120B) proposes guard patches.
 - `FALLBACK_MODEL` (DeepSeek V4 Flash) if a Nemotron model is unavailable. Confirm ids against `/v1/models`; Crusoe availability varies by account.
 
-### Planned, not yet scaffolded
-- **Proxy**: FastAPI/uvicorn OpenAI-compatible endpoint (and You.com pass-through via `YDC_API_KEY`) that redacts outbound requests and restores inbound responses; authenticated with `GUARD_PROXY_TOKEN`. This is what a NemoClaw sandbox points at.
+### Proxy and sandbox (implemented)
+- **Proxy** (`piiguard/proxy.py`): FastAPI/uvicorn OpenAI-compatible endpoint (and You.com pass-through via `YDC_API_KEY`) that redacts outbound requests and restores inbound responses; authenticated with `GUARD_PROXY_TOKEN`. This is what a NemoClaw sandbox points at.
 - **`nemoclaw/`**: onboard script, OpenShell egress policy YAML (allow only the proxy, deny direct Crusoe/You.com reach), and a leak-demo script.
   Positioning (verified 2026-10-17 against NVIDIA/OpenShell + NVIDIA/NemoClaw main): OpenShell network rules match host/port/binary/method/path/query only, never request bodies; NemoClaw docs say the rule "does not inspect the application protocol or payload". OpenShell does expose a *supervisor middleware* hook (RFC 0009, research preview, `network_middlewares:` in policy + gateway TOML registration) but the only built-in is a demo-only, non-configurable `sk-` key regex. PII guard is the content layer that hook leaves empty. Stretch: expose the guard as a gRPC supervisor middleware so it slots into `network_middlewares`.
 - **`runs/`**: per-iteration JSONL logs (gitignored except `.gitkeep`).

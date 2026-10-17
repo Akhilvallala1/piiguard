@@ -117,6 +117,37 @@ def cmd_improve(a):
     print(json.dumps({"heldout_before": h0["leak_rate"], "heldout_after": hN["leak_rate"], "fp_before": c0["fp_rate"], "fp_after": cN["fp_rate"]}))
 
 
+def cmd_bench(a):
+    from .bench import presidio_redactor, render_table, run_bench
+    from .coach.gate import GuardRepo
+    from .eval.harness import CLEAN_SAMPLES
+    from .pii.guard import Guard
+    sets = _load_sets(Path(a.data))
+    attacks = sets[a.set]
+    systems = {"NemoClaw sandbox policy only (no content layer)": lambda t: t}
+    if not a.no_presidio:
+        print("loading Presidio + spaCy en_core_web_lg ...", file=sys.stderr)
+        systems["Microsoft Presidio (default recognizers)"] = presidio_redactor()
+        systems["Microsoft Presidio (scoped: SSN, email, phone, card)"] = presidio_redactor(entities=["US_SSN", "EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT_CARD"])
+    g0 = Guard.from_texts(*GuardRepo(ROOT).files_at(a.baseline_tag))
+    systems[f"piiguard {a.baseline_tag} (hand-written rules)"] = lambda t, g=g0: g.redact(t).text
+    gn = Guard.from_dir(ROOT / "guard")
+    systems[f"piiguard current rules v{gn.rules.version} (self-improved)"] = lambda t, g=gn: g.redact(t).text
+    if a.llm:
+        gl = Guard.from_dir(ROOT / "guard", _classifier(True))
+        systems["piiguard current rules + Nemotron 3.5 Lightning classifier"] = lambda t, g=gl: g.redact(t).text
+    rows = run_bench(systems, attacks, CLEAN_SAMPLES)
+    (ROOT / "runs").mkdir(exist_ok=True)
+    (ROOT / "runs" / "bench.json").write_text(json.dumps({"set": a.set, "rows": rows}, indent=2))
+    print(render_table(rows))
+    if a.by_technique:
+        techs = sorted({t for r in rows for t in r["by_technique"]})
+        print("\n| technique | " + " | ".join(r["system"].split(" (")[0] for r in rows) + " |")
+        print("|---|" + "---|" * len(rows))
+        for t in techs:
+            print(f"| {t} | " + " | ".join(f"{r['by_technique'].get(t, 0):.0%}" for r in rows) + " |")
+
+
 def cmd_report(a):
     hist = ROOT / "runs" / "history.jsonl"
     if not hist.exists():
@@ -163,6 +194,8 @@ def main(argv=None):
     s = sub.add_parser("eval", help="evaluate current guard"); s.add_argument("--data", default=str(DATA)); s.add_argument("--set", default="heldout", choices=["train", "val", "heldout"]); s.add_argument("--llm", action="store_true"); s.add_argument("--json", action="store_true"); s.add_argument("--show-misses", action="store_true"); s.set_defaults(fn=cmd_eval)
 
     s = sub.add_parser("improve", help="run N self-improvement generations"); s.add_argument("--generations", type=int, default=5); s.add_argument("--start-gen", type=int, default=1); s.add_argument("--baseline-tag", default="gen-0"); s.add_argument("--data", default=str(DATA)); s.add_argument("--llm", action="store_true"); s.add_argument("--min-delta", type=float, default=0.05); s.add_argument("--max-fp", type=float, default=0.05); s.set_defaults(fn=cmd_improve)
+
+    s = sub.add_parser("bench", help="compare systems on the same held-out data (Presidio, gen-0, current, +LLM)"); s.add_argument("--data", default=str(DATA)); s.add_argument("--set", default="heldout", choices=["train", "val", "heldout"]); s.add_argument("--baseline-tag", default="gen-0"); s.add_argument("--llm", action="store_true"); s.add_argument("--no-presidio", action="store_true"); s.add_argument("--by-technique", action="store_true"); s.set_defaults(fn=cmd_bench)
 
     s = sub.add_parser("report", help="print generation history and held-out before/after"); s.add_argument("--markdown", action="store_true"); s.set_defaults(fn=cmd_report)
 

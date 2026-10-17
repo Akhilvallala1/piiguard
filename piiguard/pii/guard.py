@@ -51,7 +51,7 @@ class Guard:
         for rule in self.rules.rules:
             try:
                 for m in rule.regex.finditer(text, timeout=SCAN_TIMEOUT_S):
-                    if rule.validate(m.group(0)):
+                    if rule.validate(m.group(0), self.rules):
                         found.append(Finding(rule.name, m.group(0), m.start(), m.end(), "regex"))
             except TimeoutError:
                 # Pathological input vs. a rule: never let it through unscanned.
