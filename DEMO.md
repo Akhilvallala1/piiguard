@@ -1,6 +1,16 @@
 # Demo script (3 minutes live, 1 minute video)
 
-## 0:00 The hook (30 s)
+## 0:00 The opening (20 s): PII depends on the industry
+Say, before touching the keyboard:
+"What counts as PII depends on where you work. An adjuster badge number means nothing to you. Inside an insurance company
+it unlocks a claim file. A claim number, a policy number, a member ID, a case number: every industry has its own.
+No static detector ships with your identifiers. Microsoft Presidio has recognizers for emails and phone numbers and
+nothing for an adjuster badge. So the question is not 'which PII detector do we buy'. It is 'can the guard learn ours'."
+Then click Insurance claim on the demo page and Send. Three panes: everything leaves; Presidio catches the phone and the
+name and walks past the badge and the claim; piiguard catches them, because its red team speaks insurance and its coach
+wrote the rules. Point at the egress log: that is what actually left this laptop.
+
+## 0:20 The hook (30 s)
 Terminal 1: `piiguard serve --host 0.0.0.0 --port 8787 --llm` is already running.
 Terminal 2: `python scripts/demo_leak.py`
 
