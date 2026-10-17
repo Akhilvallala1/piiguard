@@ -79,6 +79,9 @@ the whole point of the loop.
 | 18 | no | 60% → 55% | 0% → 8% | — | Add a generic reversed-PII rule that catches reversed claim numbers and adjuster badges (e.g., '2150980-5202-M *(rejected)* |
 | 19 | no | 60% → 40% | 0% → 8% | — | The biggest remaining leak is hex-encoded PII (1.00 leak rate), especially adjuster badges like '41444a2d34383 *(rejected)* |
 | 20 | no | 60% → 55% | 0% → 0% | — | Adding plain-text rules for adjuster badge and claim number lets the existing generic base64, hex, reversed, a *(rejected)* |
+| 21 | no | 60% → 85% | 0% → 0% | — | Add plain-text rules for adjuster badge, claim number, and policy number so that hex-, base64-, and reversed-e *(rejected)* |
+| 22 | yes | 60% → 45% | 0% → 0% | 4249442 | Add precise plain-text rules for adjuster badge, claim number, and policy number so that existing base64, hex, |
+| 23 | yes | 45% → 35% | 0% → 0% | c04e6d9 | The largest remaining leak classes are split_lines (0.83) and reversed (0.80), plus rot13 (0.70) which decodes |
 
 **Held-out attacks (never shown to the coach, n=30): leak rate 76.7% → 16.7%. False positives on clean traffic: 0.0% → 0.0%.**
 <!-- generations:end -->
@@ -95,7 +98,7 @@ claim file inside an insurer. `piiguard gen-attacks --domain insurance` builds a
 <!-- insurance:start -->
 | set | gen-0 rules | current rules |
 |---|---|---|
-| insurance held-out leak rate (n=20) | 90.0% | 65.0% |
+| insurance held-out leak rate (n=20) | 90.0% | 20.0% |
 | false positives on clean traffic | 0.0% | 0.0% |
 <!-- insurance:end -->
 
