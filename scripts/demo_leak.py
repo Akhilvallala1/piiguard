@@ -33,7 +33,7 @@ def main():
     a = ap.parse_args()
     token = os.environ.get("GUARD_PROXY_TOKEN") or sys.exit("set GUARD_PROXY_TOKEN to the token the proxy printed")
     payload = {"model": os.environ.get("WORKER_MODEL", "nvidia/Nemotron-3.5-Lightning-30B-A3B"),
-               "messages": [{"role": "user", "content": TASK}], "max_tokens": 200}
+               "messages": [{"role": "user", "content": TASK}], "max_tokens": 900}
 
     banner("1. DIRECT: agent -> Crusoe / You.com (sandbox policy allows these hosts)")
     print("POST https://api.inference.crusoecloud.com/v1/chat/completions")
@@ -54,7 +54,9 @@ def main():
         return
     h = {"Authorization": f"Bearer {token}"}
     r = httpx.post(f"{a.proxy}/v1/chat/completions", json=payload, headers=h, timeout=120)
-    print("agent received:", r.json()["choices"][0]["message"]["content"][:300])
+    msg = r.json()["choices"][0]["message"]
+    answer = msg.get("content") or f"(model spent its budget reasoning; reasoning starts: {str(msg.get('reasoning', ''))[:120]!r})"
+    print("agent received:", answer[:300])
     ev = httpx.get(f"{a.proxy}/events", headers=h).json()[-1]
     print("\nguard event:", json.dumps(ev, indent=2))
     print(f"\n  >>> what left the host: {ev['preview']}")
