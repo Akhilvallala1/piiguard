@@ -40,13 +40,16 @@ def chat_with_fallback(call: Callable, models: Sequence[str], messages: list[dic
     raise last
 
 
-def chat(messages: list[dict], models: Sequence[str] | None = None, json_mode: bool = False, max_tokens: int = 4096, temperature: float = 0.2) -> str:
+def chat(messages: list[dict], models: Sequence[str] | None = None, json_mode: bool = False, max_tokens: int = 4096, temperature: float = 0.2,
+         thinking: bool | None = None) -> str:
     client = get_client()
 
     def _call(model, msgs, **_):
         kwargs = dict(model=model, messages=msgs, max_tokens=max_tokens, temperature=temperature)
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
+        if thinking is False:  # Nemotron reasons by default; the classifier needs an answer, not a deliberation
+            kwargs["extra_body"] = {"chat_template_kwargs": {"enable_thinking": False}}
         resp = client.chat.completions.create(**kwargs)
         content = resp.choices[0].message.content or ""
         if not content.strip():

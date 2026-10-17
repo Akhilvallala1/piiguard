@@ -21,7 +21,7 @@ class LLMClassifier:
     def _call(self, messages: list[dict]) -> str:
         if self._chat is None:
             from ..crusoe import chat, WORKER_MODEL, FALLBACK_MODEL
-            return chat(messages, models=self._models or [WORKER_MODEL, FALLBACK_MODEL], json_mode=True, max_tokens=1024, temperature=0.0)
+            return chat(messages, models=self._models or [WORKER_MODEL, FALLBACK_MODEL], json_mode=True, max_tokens=600, temperature=0.0, thinking=False)
         return self._chat(messages)
 
     def __call__(self, text: str, prompt: str) -> list[dict]:

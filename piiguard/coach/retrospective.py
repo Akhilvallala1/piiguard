@@ -101,6 +101,9 @@ The guard has two evolvable artifacts:
    VALIDATORS let a broad pattern stay precise: the match is kept only if the validator passes. Available validators:
    __VALIDATOR_DOCS__
    Pattern: use a broad shape regex (e.g. any base64-looking token of 12+ chars) + the matching validator, so clean text is never flagged.
+   Domain identifiers (badge, claim, policy, member, case numbers) almost always have a fixed prefix and digit grouping, e.g. 'ADJ-48213-TX',
+   'CLM-2026-0048213', 'POL 88-4421-7730'. Anchor on the prefix and the exact groups. Never use a generic "any id-like token" rule: order numbers,
+   SKUs, flight numbers, commit hashes and PR numbers in clean traffic look like ids too.
 2. PROMPT: the instruction given to a small LLM classifier that finds spans regex misses. It only matters when the classifier is ENABLED.
 
 You will see the attacks that LEAKED through the current guard, plus the outcome of previous proposals. Propose ONE focused improvement
