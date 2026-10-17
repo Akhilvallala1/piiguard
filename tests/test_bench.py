@@ -34,3 +34,10 @@ def test_presidio_scoped_adapter_ignores_dates_and_places():
     red = presidio_redactor(entities=["US_SSN", "EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT_CARD"])
     assert red("Meeting on 2026-10-17 at the Ferry Building with Maria Chen.") == "Meeting on 2026-10-17 at the Ferry Building with Maria Chen."
     assert "912-34-5678" not in red("SSN 912-34-5678")
+
+
+def test_bench_rows_report_latency_per_text():
+    rows = run_bench({"nothing": lambda t: t}, ATTACKS, CLEAN)
+    assert "ms_per_text" in rows[0] and rows[0]["ms_per_text"] >= 0
+    from piiguard.bench import render_table
+    assert "ms/text" in render_table(rows)
