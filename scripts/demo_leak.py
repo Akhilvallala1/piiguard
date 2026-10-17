@@ -32,13 +32,13 @@ def main():
     ap.add_argument("--proxy", default="http://127.0.0.1:8787")
     a = ap.parse_args()
     token = os.environ.get("GUARD_PROXY_TOKEN") or sys.exit("set GUARD_PROXY_TOKEN to the token the proxy printed")
-    payload = {"model": os.environ.get("WORKER_MODEL", "nvidia/nemotron-3.5-lightning-30b-a3b"),
+    payload = {"model": os.environ.get("WORKER_MODEL", "nvidia/Nemotron-3.5-Lightning-30B-A3B"),
                "messages": [{"role": "user", "content": TASK}], "max_tokens": 200}
 
     banner("1. DIRECT: agent -> Crusoe / You.com (sandbox policy allows these hosts)")
     print("POST https://api.inference.crusoecloud.com/v1/chat/completions")
     print(json.dumps(payload, indent=2))
-    print("GET  https://api.ydc-index.io/v1/search?query=" + SEARCH)
+    print("GET  https://api.you.com/v1/search?query=" + SEARCH)
     leaked = [v for v in RECORD.values() if v in json.dumps(payload) or v in SEARCH]
     print(f"\n  >>> {len(leaked)} PII values left the machine: {leaked}")
 

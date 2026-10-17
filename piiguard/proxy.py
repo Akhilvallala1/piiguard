@@ -36,7 +36,7 @@ class CrusoeUpstream:
     def __init__(self):
         self.base = os.environ.get("CRUSOE_BASE_URL", "https://api.inference.crusoecloud.com/v1").rstrip("/")
         self.key = os.environ.get("CRUSOE_API_KEY", "")
-        self.you_url = os.environ.get("YOU_SEARCH_URL", "https://api.ydc-index.io/v1/search")
+        self.you_url = os.environ.get("YOU_SEARCH_URL", "https://api.you.com/v1/search")
         self.you_key = os.environ.get("YDC_API_KEY", "")
         self.http = httpx.Client(timeout=120)
 
@@ -65,8 +65,8 @@ _FINISH = {"stop", "length", "tool_calls", "content_filter", "function_call"}
 _PROVIDER_ID = re.compile(r"\A(?:call|chatcmpl|fc|resp|toolu|msg|cmpl)[_-][A-Za-z0-9_-]{4,64}\Z")
 _LONG_DIGITS = re.compile(r"\d{6,}")
 DEFAULT_MODEL_ALLOWLIST = [
-    os.environ.get("WORKER_MODEL", "nvidia/nemotron-3.5-lightning-30b-a3b"),
-    os.environ.get("COACH_MODEL", "nvidia/Nemotron-3-Super-120B-A12B"),
+    os.environ.get("WORKER_MODEL", "nvidia/Nemotron-3.5-Lightning-30B-A3B"),
+    os.environ.get("COACH_MODEL", "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B"),
     os.environ.get("FALLBACK_MODEL", "deepseek-ai/Deepseek-V4-Flash"),
 ]
 
@@ -175,7 +175,7 @@ def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[s
         try:
             return upstream.models()
         except Exception:  # noqa: BLE001
-            return {"object": "list", "data": [{"id": os.environ.get("WORKER_MODEL", "nvidia/nemotron-3.5-lightning-30b-a3b"), "object": "model"}]}
+            return {"object": "list", "data": [{"id": os.environ.get("WORKER_MODEL", "nvidia/Nemotron-3.5-Lightning-30B-A3B"), "object": "model"}]}
 
     @app.post("/v1/chat/completions", dependencies=[Depends(auth)])
     async def chat(request: Request):

@@ -18,12 +18,6 @@ network_policies:
   youcom_direct:
     name: youcom_direct
     endpoints:
-      - host: api.ydc-index.io
-        port: 443
-        protocol: rest
-        enforcement: enforce
-        rules:
-          - allow: { method: GET, path: "/**" }
       - host: api.you.com
         port: 443
         protocol: rest

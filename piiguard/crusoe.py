@@ -5,15 +5,20 @@ import os
 import time
 from typing import Callable, Sequence
 
+from .env import load_dotenv as _load_dotenv
+
+_load_dotenv()
 DEFAULT_BASE_URL = "https://api.inference.crusoecloud.com/v1"
-WORKER_MODEL = os.environ.get("WORKER_MODEL", "nvidia/nemotron-3.5-lightning-30b-a3b")
-COACH_MODEL = os.environ.get("COACH_MODEL", "nvidia/Nemotron-3-Super-120B-A12B")
+WORKER_MODEL = os.environ.get("WORKER_MODEL", "nvidia/Nemotron-3.5-Lightning-30B-A3B")
+COACH_MODEL = os.environ.get("COACH_MODEL", "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B")
 FALLBACK_MODEL = os.environ.get("FALLBACK_MODEL", "deepseek-ai/Deepseek-V4-Flash")
 
 
 def get_client():
     from openai import OpenAI
+    from .env import load_dotenv
 
+    load_dotenv()
     key = os.environ.get("CRUSOE_API_KEY")
     if not key:
         raise RuntimeError("CRUSOE_API_KEY is not set (export it in your shell; quote it, keys may contain $)")

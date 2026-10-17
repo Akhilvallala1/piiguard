@@ -134,6 +134,8 @@ def cmd_serve(a):
 
 
 def main(argv=None):
+    from .env import load_dotenv
+    load_dotenv()
     p = argparse.ArgumentParser(prog="piiguard")
     sub = p.add_subparsers(dest="cmd", required=True)
 

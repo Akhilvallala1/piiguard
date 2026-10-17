@@ -8,7 +8,7 @@
 set -euo pipefail
 : "${GUARD_PROXY_TOKEN:?set GUARD_PROXY_TOKEN to the same token the proxy was started with}"
 : "${SANDBOX_NAME:=piiguard-agent}"
-: "${NEMOCLAW_MODEL:=nvidia/nemotron-3.5-lightning-30b-a3b}"
+: "${NEMOCLAW_MODEL:=nvidia/Nemotron-3.5-Lightning-30B-A3B}"
 # host.openshell.internal is how a sandbox reaches services on the host through the OpenShell gateway.
 : "${GUARD_URL:=http://host.openshell.internal:8787/v1}"
 
