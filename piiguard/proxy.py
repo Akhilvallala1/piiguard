@@ -154,7 +154,9 @@ def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[s
     def record(route: str, mapping: dict, types: list[str], preview: str):
         ev = {"ts": time.strftime("%H:%M:%S"), "route": route, "redactions": len(mapping), "types": sorted(set(types)), "tokens": list(mapping), "preview": preview[:160]}
         state["events"].append(ev)
-        with open(os.path.join(ROOT, "runs", "proxy-events.jsonl"), "a") as f:
+        path = os.environ.get("PIIGUARD_EVENTS_PATH") or os.path.join(ROOT, "runs", "proxy-events.jsonl")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "a") as f:
             f.write(json.dumps(ev) + "\n")
 
     @app.get("/health")

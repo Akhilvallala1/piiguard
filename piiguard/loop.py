@@ -51,6 +51,7 @@ def run_generation(root: str | Path, gen: int, train: list[dict], val: list[dict
     repo.stage(proposal.rules_yaml, proposal.prompt_md if proposal.prompt_md is not None else prompt_md)
     candidate = Guard.from_dir(repo.guard_dir, classifier)
     val_after, clean_after = _scores(candidate, val, clean)
+    fp_examples = _fp_examples(candidate, clean)
     decision = decide({"leak_rate": val_before["leak_rate"], "fp_rate": clean_before["fp_rate"]},
                       {"leak_rate": val_after["leak_rate"], "fp_rate": clean_after["fp_rate"]},
                       min_leak_delta, max_fp_increase)
@@ -65,12 +66,25 @@ def run_generation(root: str | Path, gen: int, train: list[dict], val: list[dict
         "gen": gen, "accepted": decision.accepted, "reason": decision.reason, "commit": sha,
         "rationale": proposal.rationale, "n_misses": len(misses),
         "train_before": train_scores, "val_before": val_before, "val_after": val_after,
-        "fp_before": clean_before, "fp_after": clean_after,
+        "fp_before": clean_before, "fp_after": clean_after, "fp_examples": fp_examples,
         "proposal": {"rules_yaml": proposal.rules_yaml, "prompt_md": proposal.prompt_md},
         "seconds": round(time.time() - t0, 1), "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }
     _append_history(root, record)
     return record
+
+
+def _fp_examples(guard: Guard, clean: list[str], limit: int = 8) -> list[dict]:
+    """Which clean samples a candidate guard flags, and by which rule: the most useful feedback the coach can get."""
+    out = []
+    for text in clean:
+        red = guard.redact(text)
+        for f in red.findings:
+            out.append({"rule": f.type, "text": text, "value": text[f.start:f.end]})
+            break
+        if len(out) >= limit:
+            break
+    return out
 
 
 def _append_history(root: Path, record: dict) -> None:

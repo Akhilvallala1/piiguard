@@ -66,3 +66,12 @@ def test_missing_prompt_in_proposal_keeps_current_prompt(tmp_path):
     rec = run_generation(root, gen=1, train=ATTACKS, val=ATTACKS, clean=CLEAN, coach_fn=coach)
     assert rec["accepted"] is True
     assert (root / "guard" / "prompt.md").read_text() == "v0\n"
+
+
+def test_rejected_record_lists_which_clean_samples_the_candidate_flagged(tmp_path):
+    root = _repo(tmp_path)
+    greedy = GEN0_RULES + "  - name: anydate\n    pattern: '\\b\\d{4}-\\d{2}-\\d{2}\\b'\n"
+    coach = lambda misses, r, p, s: _proposal(greedy)
+    rec = run_generation(root, gen=1, train=ATTACKS, val=ATTACKS, clean=["shipped on 2026-10-17", "hello"], coach_fn=coach, max_fp_increase=0.0)
+    assert rec["accepted"] is False
+    assert rec["fp_examples"] == [{"rule": "anydate", "text": "shipped on 2026-10-17", "value": "2026-10-17"}]

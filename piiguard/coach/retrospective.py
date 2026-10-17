@@ -124,6 +124,8 @@ def build_messages(misses: list[dict], rules_yaml: str, prompt_md: str, scores: 
         lines.append("PREVIOUS PROPOSALS (do not repeat rejected ideas):")
         for h in history[-6:]:
             lines.append(f"- gen {h.get('gen')}: {'ACCEPTED' if h.get('accepted') else 'REJECTED'} - {h.get('rationale', '')[:160]} -> {h.get('reason', '')}")
+            for ex in (h.get("fp_examples") or [])[:4]:
+                lines.append(f"    false positive: rule {ex['rule']!r} flagged {ex['value']!r} in clean text {ex['text']!r}")
     by_t = scores.get("by_technique") or {}
     if by_t:
         lines.append("Leak rate by technique: " + ", ".join(f"{t}={v:.2f}" for t, v in by_t.items()))

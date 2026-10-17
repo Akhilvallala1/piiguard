@@ -27,14 +27,45 @@ unrelated guardrail project by the same author, but no code was reused.
 
 ## Results
 
-Generation 0 (hand-written baseline rules, no LLM classifier), 150 attacks, 60/20/20 split:
+All numbers below are produced by the code in this repo during the event and injected by
+`scripts/update_readme.py`. Held-out attacks are never shown to the coach. False positives are measured on
+25 number-heavy clean samples (timestamps, versions, order ids, prices, coordinates).
 
-| set | leak rate | false positives (25 hard negatives) |
+### Same data, different systems
+
+<!-- bench:start -->
+| system | held-out leak rate | false positives |
 |---|---|---|
-| held-out | 76.7 % (23/30) | 0.0 % |
+| NemoClaw sandbox policy only (no content layer) | 100.0% (30/30) | 0.0% |
+| Microsoft Presidio (default recognizers) | 53.3% (16/30) | 64.0% |
+| piiguard gen-0 (hand-written rules) | 76.7% (23/30) | 0.0% |
+| piiguard current rules v0 (self-improved) | 26.7% (8/30) | 0.0% |
+<!-- bench:end -->
 
-Run `piiguard report` after `piiguard improve` for the before/after table. Results from the live run are
-appended below before submission.
+Presidio's default recognizers also flag dates, places and names, which is why its false-positive rate on
+clean agent traffic is high; the scoped row limits it to the same entity types piiguard targets. The point
+is not that Presidio is weak. It is that a static detector stays where it is, and piiguard closes the gap on
+its own, on attacks its coach never saw.
+
+### Generation history (what the coach proposed, what the gate decided)
+
+<!-- generations:start -->
+| gen | kept | val leak before → after | false positives before → after | commit | coach rationale |
+|---|---|---|---|---|---|
+| 1 | yes | 70% → 50% | 0% → 0% | 9af5466 | Add rules that catch the encoded and obfuscated forms seen in the leaks (spaced digits, reversed groups, spell |
+| 2 | no | 50% → 0% | 0% → 100% | — | Add detection for Base64 and hex-encoded PII (the largest remaining leak sources) and relax the SSN, DOB, and  *(rejected)* |
+| 3 | yes | 50% → 33% | 0% → 0% | a48d0e8 | Add context‑specific detectors for Base64 and hex‑encoded PII that only trigger after known field names (ssn,  |
+| 4 | no | 33% → 33% | 0% → 0% | — |  *(rejected)* |
+| 5 | no | 33% → 30% | 0% → 0% | — | Add generic detectors for hex‑ and base64‑encoded PII that rely on structural properties of the encoding (hex  *(rejected)* |
+| 6 | no | 33% → 33% | 0% → 0% | — |  *(rejected)* |
+| 7 | no | 33% → 33% | 0% → 0% | — |  *(rejected)* |
+| 8 | no | 33% → 33% | 0% → 0% | — |  *(rejected)* |
+
+**Held-out attacks (never shown to the coach, n=30): leak rate 76.7% → 26.7%. False positives on clean traffic: 0.0% → 0.0%.**
+<!-- generations:end -->
+
+Every accepted generation is a git tag (`git tag --list 'gen-*'`); `git diff gen-0 gen-3 -- guard/` shows
+exactly what the system learned, in plain YAML.
 
 ## Quickstart
 

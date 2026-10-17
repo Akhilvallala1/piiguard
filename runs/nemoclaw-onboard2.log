@@ -1,0 +1,53 @@
+(node:75651) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+  [non-interactive] Agent: OpenClaw
+
+  NemoClaw Onboarding
+  (non-interactive mode)
+  (resume mode)
+  ===================
+
+  [1/8] Preflight checks
+  ──────────────────────────────────────────────────
+  [resume] Skipping preflight (cached)
+
+  Suggested fix:
+
+  - Avoid Docker Desktop credential store pull failures (docker_desktop_credential_store_headless): The active Docker client config (~/.docker/config.json) sets credsStore "desktop", which needs the Docker Desktop GUI session. This session looks headless, so the credential helper can fail and block every image pull, even for public images.
+    DOCKER_CONFIG=$(mktemp -d) nemoclaw onboard --resume   # resume with an isolated Docker config
+    # or temporarily remove the "credsStore" entry from ~/.docker/config.json, then rerun `nemoclaw onboard`.
+  - Increase container runtime resources (container_runtime_under_provisioned): Container runtime is under-provisioned (detected 12 vCPU / 7.7 GiB; recommended 4 vCPU / 8 GiB). Sandbox build will be slow and may stall when runtime resources are too low.
+    Open Docker Desktop → Settings → Resources and raise CPUs to ≥ 4 and memory to ≥ 8 GiB.
+  ✓ Docker daemon: server 28.3.2
+  ✓ Docker can start bridge containers
+  ✓ Docker container DNS resolution works
+
+  [2/8] Starting OpenShell gateway
+  ──────────────────────────────────────────────────
+  [resume] Skipping gateway (running)
+
+  [3/8] Configuring inference provider
+  ──────────────────────────────────────────────────
+  [resume] Skipping provider_selection (compatible-endpoint / nvidia/Nemotron-3.5-Lightning-30B-A3B)
+  [resume] Reusing sandbox name: piiguard-agent.
+
+  [4/8] Setting up inference provider
+  ──────────────────────────────────────────────────
+  [resume] Skipping inference (compatible-endpoint / nvidia/Nemotron-3.5-Lightning-30B-A3B)
+
+  [6/8] Creating sandbox
+  ──────────────────────────────────────────────────
+  [reuse] Skipping sandbox (piiguard-agent)
+
+  [7/8] Setting up OpenClaw inside sandbox
+  ──────────────────────────────────────────────────
+  [resume] Skipping openclaw (piiguard-agent)
+  Verifying compatible endpoint through the sandbox runtime...
+  Compatible endpoint sandbox smoke check failed.
+  Messaging setup is not the root cause; the sandbox inference.local route failed.
+  OPENCLAW_CONFIG_OK inference.local returned transient HTTP 503; response_bytes=41 inference.local smoke attempt 1/3 failed; retrying in 5s inference.local returned transient HTTP 503; response_bytes=41 inference.local smoke attempt 2/3 failed; retrying in 10s inference.local returned transient HTTP 503; response_bytes=41
+
+  Onboarding did not finish. Resume from the step that failed with:
+    nemoclaw onboard --resume
+  Completed steps are skipped; pass --fresh instead to start over.
+exit 1

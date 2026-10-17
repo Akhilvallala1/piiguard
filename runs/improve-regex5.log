@@ -1,0 +1,21 @@
+[resume] baseline from tag gen-0; continuing at gen 9
+[gen 0] HELD-OUT leak rate 76.67% | fp 0.00% | rules v0
+[gen 9] train leak 0.44 | val leak 0.33 | fp 0.00 | 40 misses -> coach
+[gen 9] coach: Add generic detectors for Base64- and hex-encoded PII that decode and validate against plain rules, plus a generic reversed-digit detector using the reversed_is_pii validator. This catches the high-leak encoded and reversed attacks without relying on field-name context, while avoiding false positives on normal text.
+[gen 9] rejected: leak rate only improved by -0.07 (need 0.05)
+[gen 10] train leak 0.44 | val leak 0.33 | fp 0.00 | 40 misses -> coach
+[gen 10] coach: Add generic detectors that rely on validators to catch encoded or obfuscated PII without relying on label prefixes. These include base64 and hex tokens that decode to PII, spaced/unicode/split-line digits that normalize to plain PII, and reversed digits that become valid after reversal. This should significantly reduce leaks in the highest‑error categories while avoiding false positives on ordinary text.
+[gen 10] rejected: false positive rate rose by 0.08 (limit 0.05)
+[gen 11] train leak 0.44 | val leak 0.33 | fp 0.00 | 40 misses -> coach
+[gen 11] coach: Add broad-but-validated detectors for Base64 and hex encoded PII, reversed digit sequences, normalized separator patterns, and spaced email formats. These catch the highest‑leak techniques while relying on validators to avoid false positives on ordinary text.
+[gen 11] rejected: false positive rate rose by 0.08 (limit 0.05)
+[gen 12] train leak 0.44 | val leak 0.33 | fp 0.00 | 40 misses -> coach
+[gen 12] rejected: coach failed to produce a valid proposal (ProposalError: coach output is not valid JSON: Expecting ',' delimiter: line 62 column 6 (char 2206))
+[gen 13] train leak 0.44 | val leak 0.33 | fp 0.00 | 40 misses -> coach
+[gen 13] rejected: coach failed to produce a valid proposal (ProposalError: rule missing name/pattern: 'prompt_md": ')
+[gen 14] train leak 0.44 | val leak 0.33 | fp 0.00 | 40 misses -> coach
+[gen 14] coach: Add broad-but-validated detectors for base64, hex, and reversed encoded PII that decode and validate against plain rules, with length thresholds to limit false positives while catching the remaining high-leak techniques.
+[gen 14] accepted: leak rate down 0.17, false positives moved +0.00 (commit bfd0300)
+[final] HELD-OUT leak rate 76.67% -> 16.67% | fp 0.00% -> 0.00% | rules v0
+{"heldout_before": 0.7666666666666667, "heldout_after": 0.16666666666666666, "fp_before": 0.0, "fp_after": 0.0}
+exit 0

@@ -20,3 +20,10 @@ def test_coach_is_told_when_classifier_is_disabled_and_sees_history():
 def test_coach_is_told_when_classifier_is_enabled():
     msgs = build_messages([], "version: 0\nrules: []\n", "p", {"leak_rate": 0.7}, classifier_enabled=True)
     assert "ENABLED" in "\n".join(m["content"] for m in msgs)
+
+
+def test_history_feedback_names_the_rule_and_the_clean_text_it_flagged():
+    history = [{"gen": 2, "accepted": False, "rationale": "reverse digits", "reason": "rejected: false positive rate rose by 0.08",
+                "fp_examples": [{"rule": "reversed_digits", "text": "shipped on 2026-10-17", "value": "2026-10-17"}]}]
+    joined = "\n".join(m["content"] for m in build_messages([], "version: 0\nrules: []\n", "p", {"leak_rate": 0.3}, history=history))
+    assert "reversed_digits" in joined and "2026-10-17" in joined

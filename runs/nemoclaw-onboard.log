@@ -1,0 +1,128 @@
+(node:54461) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+  Third-Party Software Notice - NemoClaw Installer
+  ──────────────────────────────────────────────────
+  NemoClaw is licensed under Apache 2.0 and automatically
+  retrieves, accesses or interacts with third-party software
+  and materials, including by deploying OpenClaw in an
+  OpenShell sandbox. Those retrieved materials are not
+  distributed with this software and are governed solely
+  by separate terms, conditions and licenses.
+  
+  You are solely responsible for finding, reviewing and
+  complying with all applicable terms, conditions, and
+  licenses, and for verifying the security, integrity and
+  suitability of any retrieved materials for your specific
+  use case.
+  
+  This software is provided "AS IS", without warranty of
+  any kind. The author makes no representations or
+  warranties regarding any third-party software, and
+  assumes no liability for any losses, damages, liabilities
+  or legal consequences from your use or inability to use
+  this software or any retrieved materials. Use this
+  software and the retrieved materials at your own risk.
+  
+  OpenClaw security guidance
+  https://docs.openclaw.ai/gateway/security
+
+  [non-interactive] Third-party software notice accepted via --yes-i-accept-third-party-software.
+  [non-interactive] Agent: OpenClaw
+
+  NemoClaw Onboarding
+  (non-interactive mode)
+  ===================
+
+  [1/8] Preflight checks
+  ──────────────────────────────────────────────────
+
+  Suggested fix:
+
+  - Avoid Docker Desktop credential store pull failures (docker_desktop_credential_store_headless): The active Docker client config (~/.docker/config.json) sets credsStore "desktop", which needs the Docker Desktop GUI session. This session looks headless, so the credential helper can fail and block every image pull, even for public images.
+    DOCKER_CONFIG=$(mktemp -d) nemoclaw onboard --resume   # resume with an isolated Docker config
+    # or temporarily remove the "credsStore" entry from ~/.docker/config.json, then rerun `nemoclaw onboard`.
+  - Increase container runtime resources (container_runtime_under_provisioned): Container runtime is under-provisioned (detected 12 vCPU / 7.7 GiB; recommended 4 vCPU / 8 GiB). Sandbox build will be slow and may stall when runtime resources are too low.
+    Open Docker Desktop → Settings → Resources and raise CPUs to ≥ 4 and memory to ≥ 8 GiB.
+  ✓ Docker daemon: server 28.3.2
+  ✓ Docker can start bridge containers
+  ✓ Docker container DNS resolution works
+  ✓ Container runtime: docker-desktop
+  ⚠ Container runtime under-provisioned: 12 vCPU / 7.7 GiB detected (recommended: 4 vCPU / 8 GiB).
+    The sandbox build will be slow and may stall on default Colima settings.
+    Suggested: Docker Desktop → Settings → Resources, raise CPU/memory.
+    Set NEMOCLAW_IGNORE_RUNTIME_RESOURCES=1 to silence this check.
+    WARNING: Non-interactive mode is continuing despite under-provisioned runtime.
+  ✓ openshell CLI: openshell 0.0.116
+  ✓ Port 8080 available (OpenShell gateway)
+  ✓ Apple GPU detected: Apple M4 Pro (16 cores), 24576 MB unified memory
+  ⓘ Local NIM unavailable — requires NVIDIA GPU
+  ⓘ Sandbox GPU: disabled (no NVIDIA GPU detected)
+
+  [2/8] Starting OpenShell gateway
+  ──────────────────────────────────────────────────
+  Starting OpenShell gateway via managed service...
+  ✓ OpenShell gateway managed service is healthy
+
+  [3/8] Configuring inference provider
+  ──────────────────────────────────────────────────
+  [non-interactive] Provider: custom
+  Chat Completions API validation returned HTTP 429; retrying in 5s...
+  Chat Completions API validation returned HTTP 429; retrying in 15s...
+  Chat Completions API available — OpenClaw will use openai-completions.
+  Using Other OpenAI-compatible endpoint with model: nvidia/Nemotron-3.5-Lightning-30B-A3B
+
+  ──────────────────────────────────────────────────
+  Review configuration
+  ──────────────────────────────────────────────────
+  Provider:      compatible-endpoint
+  Model:         nvidia/Nemotron-3.5-Lightning-30B-A3B
+  API key:       configured for OpenShell gateway registration
+  Web search:    disabled
+  Managed tools: none
+  Messaging:     none
+  Sandbox name:  piiguard-agent
+  Note:          Container runtime is under-provisioned; the sandbox build may take 30+ minutes or stall. See preflight warning above.
+  ──────────────────────────────────────────────────
+  Web search and messaging channels will be prompted next.
+
+  [4/8] Setting up inference provider
+  ──────────────────────────────────────────────────
+  ✓ Reusing selected Chat Completions validation: compatible-endpoint / nvidia/Nemotron-3.5-Lightning-30B-A3B
+  ✓ Inference route set: compatible-endpoint / nvidia/Nemotron-3.5-Lightning-30B-A3B
+
+  [5/8] Messaging channels
+  ──────────────────────────────────────────────────
+  [non-interactive] No complete messaging channel inputs configured. Skipping.
+
+  [6/8] Creating sandbox
+  ──────────────────────────────────────────────────
+  ! Port 18789 is taken. Using port 18790 instead.
+  Registry entry exists for 'piiguard-agent' but installer restore flag not set — skipping pre-upgrade backup select.
+  Creating sandbox 'piiguard-agent' (this takes a few minutes on first run)...
+[1m[32m✓[39m[0m Updated provider compatible-endpoint
+  Building sandbox image...
+  ⏳ Still working on Sandbox creation… (30s elapsed)
+  ⏳ Still working on Sandbox creation… (60s elapsed)
+  ⏳ Still working on Sandbox creation… (90s elapsed)
+  Applying managed startup profile to the verified sandbox...
+  ✓ Applied the managed startup profile
+  Committing managed startup shared state...
+  ✓ Committed managed startup shared state
+  ✓ Released the managed startup hold
+  ✓ Revalidated the managed startup sandbox identity
+  Waiting for sandbox to become ready...
+  ✓ Sandbox 'piiguard-agent' created
+  Obsolete sandbox image retirement skipped: no-owned-image
+
+  [7/8] Setting up OpenClaw inside sandbox
+  ──────────────────────────────────────────────────
+  Verifying compatible endpoint through the sandbox runtime...
+  Compatible endpoint sandbox smoke check failed.
+  Messaging setup is not the root cause; the sandbox inference.local route failed.
+  OPENCLAW_CONFIG_OK inference.local returned transient HTTP 503; response_bytes=41 inference.local smoke attempt 1/3 failed; retrying in 5s inference.local returned transient HTTP 503; response_bytes=41 inference.local smoke attempt 2/3 failed; retrying in 10s inference.local returned transient HTTP 503; response_bytes=41
+
+  Onboarding did not finish. Resume from the step that failed with:
+    nemoclaw onboard --resume
+  Completed steps are skipped; pass --fresh instead to start over.
+exit 1

@@ -4,8 +4,15 @@ from piiguard.eval.harness import evaluate_attacks, evaluate_clean, CLEAN_SAMPLE
 
 ROOT = Path(__file__).resolve().parents[1]
 
+GEN0_RULES = """version: 0
+rules:
+  - name: ssn
+    pattern: '\\b\\d{3}-\\d{2}-\\d{4}\\b'
+"""
+
+
 def test_gen0_guard_catches_plain_ssn_but_leaks_base64():
-    g = Guard.from_dir(ROOT / "guard")
+    g = Guard.from_texts(GEN0_RULES)   # pinned gen-0 rules: guard/ itself evolves across generations
     attacks = [
         {"id": "p", "technique": "plain", "pii_type": "ssn", "text": "ssn is 123-45-6789", "surface_forms": ["123-45-6789"]},
         {"id": "b", "technique": "base64", "pii_type": "ssn", "text": "ssn is MTIzLTQ1LTY3ODk=", "surface_forms": ["MTIzLTQ1LTY3ODk="]},

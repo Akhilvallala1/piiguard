@@ -125,3 +125,11 @@ def test_model_allowlist_and_provider_id_formats():
     client.post("/v1/chat/completions", headers={"Authorization": "Bearer t"}, json={"model": "other-9123456789", "messages": []})
     assert "good-model" not in inspected and "call_Ab12cd34" not in inspected     # allowlisted, untouched
     assert "a912345678" in inspected and "other-9123456789" in inspected           # shape alone is not trust
+
+
+def test_events_are_written_to_the_configured_path_only(tmp_path, monkeypatch):
+    target = tmp_path / "ev.jsonl"
+    monkeypatch.setenv("PIIGUARD_EVENTS_PATH", str(target))
+    client = TestClient(create_app(upstream=FakeUpstream(), token="t"))
+    client.post("/v1/chat/completions", headers={"Authorization": "Bearer t"}, json={"model": "m", "messages": [{"role": "user", "content": "ssn 912-34-5678"}]})
+    assert target.exists() and "PII_SSN_1" in target.read_text()
