@@ -28,10 +28,15 @@ def parse_proposal(text: str) -> Proposal:
     start, end = cleaned.find("{"), cleaned.rfind("}")
     if start == -1 or end == -1:
         raise ProposalError("coach output contained no JSON object")
+    blob = cleaned[start:end + 1]
     try:
-        data = json.loads(cleaned[start:end + 1])
-    except json.JSONDecodeError as e:
-        raise ProposalError(f"coach output is not valid JSON: {e}") from e
+        data = json.loads(blob)
+    except json.JSONDecodeError:
+        try:
+            data = json.loads(_repair_json(blob))
+        except json.JSONDecodeError as e:
+            raise ProposalError(f"coach output is not valid JSON: {e}") from e
+    data = _unbackspace(data)
     if not isinstance(data.get("rationale"), str) or not data["rationale"].strip():
         raise ProposalError("coach proposal missing string field 'rationale'")
     prompt_md = data.get("prompt_md")
@@ -48,6 +53,28 @@ def parse_proposal(text: str) -> Proposal:
     except Exception as e:  # yaml or regex problems
         raise ProposalError(f"proposed rules invalid: {e}") from e
     return Proposal(data["rationale"].strip(), rules_yaml, prompt_md, rules)
+
+
+_ESCAPE_PAIR = re.compile(r'\\(["\\/bfnrtu])|\\')   # legal escape pair, or a lone backslash
+_TRAILING_COMMA = re.compile(r",(\s*[}\]])")
+
+
+def _repair_json(blob: str) -> str:
+    """Fix what LLMs reliably get wrong in JSON: regex escapes like \d and trailing commas.
+    \b is a legal JSON escape (backspace), so a regex word boundary survives as 0x08; _unbackspace restores it."""
+    fixed = _ESCAPE_PAIR.sub(lambda m: m.group(0) if m.group(1) else chr(92) * 2, blob)
+    fixed = _TRAILING_COMMA.sub(r"\1", fixed)
+    return fixed
+
+
+def _unbackspace(obj):
+    if isinstance(obj, str):
+        return obj.replace(chr(8), chr(92) + 'b')
+    if isinstance(obj, list):
+        return [_unbackspace(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: _unbackspace(v) for k, v in obj.items()}
+    return obj
 
 
 def rules_to_yaml(rules: list, version: int = 0) -> str:
