@@ -1,0 +1,9 @@
+[resume] baseline from tag gen-0; continuing at gen 15
+[gen 0] HELD-OUT leak rate 0.00% | fp 0.00% | rules v0
+[gen 15] train leak 0.00 | val leak 0.00 | fp 0.00 | 0 misses -> coach
+[gen 15] coach: Add detection for hex-encoded PII that may be prefixed with '0x' to catch obfuscated hex strings currently missed by the plain hex pattern, while the validator ensures only true PII is flagged.
+[gen 15] rejected: leak rate only improved by 0.00 (need 0.05)
+no misses left on train; stopping early
+[final] HELD-OUT leak rate 0.00% -> 0.00% | fp 0.00% -> 0.00% | rules v0
+{"heldout_before": 0.0, "heldout_after": 0.0, "fp_before": 0.0, "fp_after": 0.0}
+exit 0

@@ -16,12 +16,14 @@ its answer back with the real values restored. Show `/events`: one line per requ
 ## 1:00 Generation 0 vs generation N (60 s)
 `piiguard report`
 
-"Hand-written rules caught 23 percent of our red-team attacks. Then we let the system fight itself:
+"Hand-written rules caught 23 percent of our red-team attacks (held-out leak rate 76.7%). Then we let the system fight itself:
 a Nemotron Super red team encodes PII twelve different ways inside search queries, tool calls, logs and
 code; a Nemotron Super coach reads every attack that leaked and rewrites the regex rules and the
 classifier prompt; a gate keeps a change only if the validation leak rate drops and false positives on
 clean traffic do not rise. Every accepted change is a git tag."
-Point at the held-out line: `X% -> Y%` on attacks the coach never saw.
+Point at the held-out line: `76.7% -> 16.7%` on attacks the coach never saw, false positives 0% -> 0%.
+With the Nemotron 3.5 Lightning classifier behind the rules: 0% leak, 0% false positives, ~3 s/request.
+Presidio on the same data: 53.3% leak with 64% false positives (default), 70% leak with 4% FP (scoped).
 
 ## 2:00 Show the learning (40 s)
 `git diff gen-0 gen-3 -- guard/rules.yaml` -> one accepted rule, plain English rationale in the commit.

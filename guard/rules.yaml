@@ -1,4 +1,4 @@
-'version': !!int '0'
+version: 14
 'rules':
 - 'name': 'ssn'
   'pattern': '\b\d{3}-\d{2}-\d{4}\b'

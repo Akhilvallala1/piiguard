@@ -75,3 +75,10 @@ def test_rejected_record_lists_which_clean_samples_the_candidate_flagged(tmp_pat
     rec = run_generation(root, gen=1, train=ATTACKS, val=ATTACKS, clean=["shipped on 2026-10-17", "hello"], coach_fn=coach, max_fp_increase=0.0)
     assert rec["accepted"] is False
     assert rec["fp_examples"] == [{"rule": "anydate", "text": "shipped on 2026-10-17", "value": "2026-10-17"}]
+
+
+def test_accepted_rules_carry_the_generation_number_as_version(tmp_path):
+    root = _repo(tmp_path)
+    run_generation(root, gen=7, train=ATTACKS, val=ATTACKS, clean=CLEAN, coach_fn=lambda m, r, p, s: _proposal(BETTER_RULES))
+    from piiguard.pii.rules import load_rules
+    assert load_rules(root / "guard" / "rules.yaml").version == 7

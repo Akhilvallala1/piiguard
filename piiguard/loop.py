@@ -48,7 +48,7 @@ def run_generation(root: str | Path, gen: int, train: list[dict], val: list[dict
         return record
     log(f"[gen {gen}] coach: {proposal.rationale}")
 
-    repo.stage(proposal.rules_yaml, proposal.prompt_md if proposal.prompt_md is not None else prompt_md)
+    repo.stage(_stamp_version(proposal.rules_yaml, gen), proposal.prompt_md if proposal.prompt_md is not None else prompt_md)
     candidate = Guard.from_dir(repo.guard_dir, classifier)
     val_after, clean_after = _scores(candidate, val, clean)
     fp_examples = _fp_examples(candidate, clean)
@@ -72,6 +72,13 @@ def run_generation(root: str | Path, gen: int, train: list[dict], val: list[dict
     }
     _append_history(root, record)
     return record
+
+
+def _stamp_version(rules_yaml: str, gen: int) -> str:
+    """The rules file's version is the generation that produced it (coach output always says 0)."""
+    import re
+    stamped, n = re.subn(r"^'?version'?:.*$", f"version: {gen}", rules_yaml, count=1, flags=re.M)
+    return stamped if n else f"version: {gen}\n" + rules_yaml
 
 
 def _fp_examples(guard: Guard, clean: list[str], limit: int = 8) -> list[dict]:

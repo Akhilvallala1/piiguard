@@ -1,3 +1,1 @@
-piiguard proxy on http://0.0.0.0:8787  (llm classifier: off)
-upstream HTTP 429
-upstream HTTP 429
+piiguard proxy on http://0.0.0.0:8787  (llm classifier: on)

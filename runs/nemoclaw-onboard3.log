@@ -1,0 +1,84 @@
+(node:92172) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+  [non-interactive] Agent: OpenClaw
+
+  NemoClaw Onboarding
+  (non-interactive mode)
+  (resume mode)
+  ===================
+
+  [1/8] Preflight checks
+  ──────────────────────────────────────────────────
+  [resume] Skipping preflight (cached)
+
+  Suggested fix:
+
+  - Avoid Docker Desktop credential store pull failures (docker_desktop_credential_store_headless): The active Docker client config (~/.docker/config.json) sets credsStore "desktop", which needs the Docker Desktop GUI session. This session looks headless, so the credential helper can fail and block every image pull, even for public images.
+    DOCKER_CONFIG=$(mktemp -d) nemoclaw onboard --resume   # resume with an isolated Docker config
+    # or temporarily remove the "credsStore" entry from ~/.docker/config.json, then rerun `nemoclaw onboard`.
+  - Increase container runtime resources (container_runtime_under_provisioned): Container runtime is under-provisioned (detected 12 vCPU / 7.7 GiB; recommended 4 vCPU / 8 GiB). Sandbox build will be slow and may stall when runtime resources are too low.
+    Open Docker Desktop → Settings → Resources and raise CPUs to ≥ 4 and memory to ≥ 8 GiB.
+  ✓ Docker daemon: server 28.3.2
+  ✓ Docker can start bridge containers
+  ✓ Docker container DNS resolution works
+
+  [2/8] Starting OpenShell gateway
+  ──────────────────────────────────────────────────
+  [resume] Skipping gateway (running)
+
+  [3/8] Configuring inference provider
+  ──────────────────────────────────────────────────
+  [resume] Skipping provider_selection (compatible-endpoint / nvidia/Nemotron-3.5-Lightning-30B-A3B)
+  [resume] Reusing sandbox name: piiguard-agent.
+
+  [4/8] Setting up inference provider
+  ──────────────────────────────────────────────────
+  [resume] Skipping inference (compatible-endpoint / nvidia/Nemotron-3.5-Lightning-30B-A3B)
+
+  [6/8] Creating sandbox
+  ──────────────────────────────────────────────────
+  [reuse] Skipping sandbox (piiguard-agent)
+
+  [7/8] Setting up OpenClaw inside sandbox
+  ──────────────────────────────────────────────────
+  [resume] Skipping openclaw (piiguard-agent)
+  Verifying compatible endpoint through the sandbox runtime...
+  ✓ Compatible endpoint responds through inference.local inside the sandbox
+
+  [8/8] Policy presets
+  ──────────────────────────────────────────────────
+  [resume] Reapplying policy presets: 
+  [32m✓[0m Deployment verified — gateway, dashboard, and inference route are healthy.
+    OpenClaw version: 2026.9.2
+
+  ──────────────────────────────────────────────────
+  OpenClaw is ready
+
+  Sandbox:  piiguard-agent
+  Model:    nvidia/Nemotron-3.5-Lightning-30B-A3B (Other OpenAI-compatible endpoint)
+
+  Start chatting
+
+    Browser:
+      http://127.0.0.1:18790/
+
+    Terminal:
+      nemoclaw launch piiguard-agent
+
+      Or open a sandbox shell first:
+        nemoclaw piiguard-agent connect
+        then run the configured interactive agent command
+
+  Authenticated dashboard URL, if needed:
+    nemoclaw piiguard-agent dashboard-url --quiet
+
+  Manage later
+
+    Status:      nemoclaw piiguard-agent status
+    Logs:        nemoclaw piiguard-agent logs --follow
+    Model:       nemoclaw inference set --model <model> --provider <provider> --sandbox piiguard-agent
+    Policies:    nemoclaw piiguard-agent policy add
+    Credentials: nemoclaw credentials reset <PROVIDER> && nemoclaw onboard
+  ──────────────────────────────────────────────────
+
+exit 0

@@ -19,7 +19,8 @@
         "split_lines": 1.0,
         "unicode_separators": 1.0,
         "url_param": 1.0
-      }
+      },
+      "ms_per_text": 0.0
     },
     {
       "system": "Microsoft Presidio (default recognizers)",
@@ -39,7 +40,29 @@
         "split_lines": 0.5,
         "unicode_separators": 0.5,
         "url_param": 0.3333333333333333
-      }
+      },
+      "ms_per_text": 5.3
+    },
+    {
+      "system": "Microsoft Presidio (scoped: SSN, email, phone, card)",
+      "leak_rate": 0.7,
+      "leaks": 21,
+      "n": 30,
+      "fp_rate": 0.04,
+      "by_technique": {
+        "base64": 1.0,
+        "fullwidth": 0.75,
+        "no_separators": 0.6666666666666666,
+        "plain": 0.0,
+        "reversed": 1.0,
+        "rot13": 0.25,
+        "spaced_digits": 0.8,
+        "spelled": 1.0,
+        "split_lines": 1.0,
+        "unicode_separators": 0.5,
+        "url_param": 1.0
+      },
+      "ms_per_text": 2.9
     },
     {
       "system": "piiguard gen-0 (hand-written rules)",
@@ -59,16 +82,17 @@
         "split_lines": 1.0,
         "unicode_separators": 1.0,
         "url_param": 1.0
-      }
+      },
+      "ms_per_text": 0.1
     },
     {
-      "system": "piiguard current rules v0 (self-improved)",
-      "leak_rate": 0.26666666666666666,
-      "leaks": 8,
+      "system": "piiguard gen-14 rules (self-improved, no model call)",
+      "leak_rate": 0.16666666666666666,
+      "leaks": 5,
       "n": 30,
       "fp_rate": 0.0,
       "by_technique": {
-        "base64": 1.0,
+        "base64": 0.0,
         "fullwidth": 0.0,
         "no_separators": 0.3333333333333333,
         "plain": 0.0,
@@ -79,7 +103,29 @@
         "split_lines": 0.0,
         "unicode_separators": 1.0,
         "url_param": 0.0
-      }
+      },
+      "ms_per_text": 0.6
+    },
+    {
+      "system": "piiguard gen-14 rules + Nemotron 3.5 Lightning classifier",
+      "leak_rate": 0.0,
+      "leaks": 0,
+      "n": 30,
+      "fp_rate": 0.0,
+      "by_technique": {
+        "base64": 0.0,
+        "fullwidth": 0.0,
+        "no_separators": 0.0,
+        "plain": 0.0,
+        "reversed": 0.0,
+        "rot13": 0.0,
+        "spaced_digits": 0.0,
+        "spelled": 0.0,
+        "split_lines": 0.0,
+        "unicode_separators": 0.0,
+        "url_param": 0.0
+      },
+      "ms_per_text": 2899.0
     }
   ]
 }

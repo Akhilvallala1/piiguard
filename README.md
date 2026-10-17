@@ -34,18 +34,26 @@ All numbers below are produced by the code in this repo during the event and inj
 ### Same data, different systems
 
 <!-- bench:start -->
-| system | held-out leak rate | false positives |
-|---|---|---|
-| NemoClaw sandbox policy only (no content layer) | 100.0% (30/30) | 0.0% |
-| Microsoft Presidio (default recognizers) | 53.3% (16/30) | 64.0% |
-| piiguard gen-0 (hand-written rules) | 76.7% (23/30) | 0.0% |
-| piiguard current rules v0 (self-improved) | 26.7% (8/30) | 0.0% |
+| system | held-out leak rate | false positives | ms/text |
+|---|---|---|---|
+| NemoClaw sandbox policy only (no content layer) | 100.0% (30/30) | 0.0% | 0 |
+| Microsoft Presidio (default recognizers) | 53.3% (16/30) | 64.0% | 5 |
+| Microsoft Presidio (scoped: SSN, email, phone, card) | 70.0% (21/30) | 4.0% | 3 |
+| piiguard gen-0 (hand-written rules) | 76.7% (23/30) | 0.0% | 0 |
+| piiguard gen-14 rules (self-improved, no model call) | 16.7% (5/30) | 0.0% | 1 |
+| piiguard gen-14 rules + Nemotron 3.5 Lightning classifier | 0.0% (0/30) | 0.0% | 2899 |
 <!-- bench:end -->
 
 Presidio's default recognizers also flag dates, places and names, which is why its false-positive rate on
 clean agent traffic is high; the scoped row limits it to the same entity types piiguard targets. The point
 is not that Presidio is weak. It is that a static detector stays where it is, and piiguard closes the gap on
 its own, on attacks its coach never saw.
+
+Two layers, two jobs. The **rules** are the cheap path: microseconds per request, no tokens, and they are what
+the coach evolves. The **Nemotron 3.5 Lightning classifier** is the expensive safety net behind them (about a
+second and a model call per request). Read the table as: how far can the free layer get on its own, and what
+does the paid layer add. Over time the coach moves the free layer toward what the paid layer catches, which is
+the whole point of the loop.
 
 ### Generation history (what the coach proposed, what the gate decided)
 
@@ -66,6 +74,7 @@ its own, on attacks its coach never saw.
 | 12 | no | 33% → 33% | 0% → 0% | — |  *(rejected)* |
 | 13 | no | 33% → 33% | 0% → 0% | — |  *(rejected)* |
 | 14 | yes | 33% → 17% | 0% → 0% | bfd0300 | Add broad-but-validated detectors for base64, hex, and reversed encoded PII that decode and validate against p |
+| 15 | no | 0% → 0% | 0% → 0% | — | Add detection for hex-encoded PII that may be prefixed with '0x' to catch obfuscated hex strings currently mis *(rejected)* |
 
 **Held-out attacks (never shown to the coach, n=30): leak rate 76.7% → 16.7%. False positives on clean traffic: 0.0% → 0.0%.**
 <!-- generations:end -->

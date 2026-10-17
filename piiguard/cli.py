@@ -132,10 +132,10 @@ def cmd_bench(a):
     g0 = Guard.from_texts(*GuardRepo(ROOT).files_at(a.baseline_tag))
     systems[f"piiguard {a.baseline_tag} (hand-written rules)"] = lambda t, g=g0: g.redact(t).text
     gn = Guard.from_dir(ROOT / "guard")
-    systems[f"piiguard current rules v{gn.rules.version} (self-improved)"] = lambda t, g=gn: g.redact(t).text
+    systems[f"piiguard gen-{gn.rules.version} rules (self-improved, no model call)"] = lambda t, g=gn: g.redact(t).text
     if a.llm:
         gl = Guard.from_dir(ROOT / "guard", _classifier(True))
-        systems["piiguard current rules + Nemotron 3.5 Lightning classifier"] = lambda t, g=gl: g.redact(t).text
+        systems[f"piiguard gen-{gn.rules.version} rules + Nemotron 3.5 Lightning classifier"] = lambda t, g=gl: g.redact(t).text
     rows = run_bench(systems, attacks, CLEAN_SAMPLES)
     (ROOT / "runs").mkdir(exist_ok=True)
     (ROOT / "runs" / "bench.json").write_text(json.dumps({"set": a.set, "rows": rows}, indent=2))
