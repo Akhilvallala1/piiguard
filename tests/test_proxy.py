@@ -50,7 +50,8 @@ def test_upstream_failure_returns_502_json_not_500():
             raise ConnectionError("no route to you.com")
     client = TestClient(create_app(upstream=Broken(), token="t"), raise_server_exceptions=False)
     r = client.post("/v1/chat/completions", headers={"Authorization": "Bearer t"}, json={"model": "m", "messages": [{"role": "user", "content": "hi"}]})
-    assert r.status_code == 502 and "no route" in r.json()["error"]
+    assert r.status_code == 502
+    assert r.json()["error"] == "upstream failure: ConnectionError" and "no route" not in r.text
     r2 = client.get("/you/search", params={"q": "x"}, headers={"Authorization": "Bearer t"})
     assert r2.status_code == 502
 
