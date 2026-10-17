@@ -170,3 +170,13 @@ def test_demo_run_shows_what_would_leave_versus_what_left():
     assert "912-34-5678" in body["guarded"]["reply"]            # restored for the agent
     assert "912-34-5678" not in json.dumps(up.seen)             # never reached upstream
     assert body["guarded"]["search_left"].startswith("Call Maria at [PII_PHONE_US_1]")
+
+
+def test_demo_run_includes_a_presidio_pane_when_available():
+    pytest = __import__("pytest"); pytest.importorskip("presidio_analyzer")
+    up = FakeUpstream()
+    client = TestClient(create_app(upstream=up, token="t"))
+    r = client.post("/demo/run", headers={"Authorization": "Bearer t"}, json={"prompt": "Adjuster badge ADJ-48213-TX handled claim CLM-2026-0048213 for maria.chen@example.com"})
+    p = r.json()["presidio"]
+    assert "maria.chen@example.com" not in p["left"]          # Presidio knows emails
+    assert "ADJ-48213-TX" in p["left"]                        # and has no idea what an adjuster badge is

@@ -44,7 +44,12 @@ def cmd_gen(a):
     if a.llm_carriers:
         from .redteam.carriers import llm_carrier
         carrier_fn = llm_carrier
-    attacks = generate_attacks(a.n, seed=a.seed, carrier_fn=carrier_fn)
+    extra = {}
+    if a.domain:
+        from .redteam.domains import DOMAINS
+        d = DOMAINS[a.domain]
+        extra = {"people": d["people"], "pii_types": d["pii_types"], "labels": d["labels"]}
+    attacks = generate_attacks(a.n, seed=a.seed, carrier_fn=carrier_fn, **extra)
     train, val, heldout = split_dataset(attacks, seed=a.seed)
     out = Path(a.out)
     for name, rows in (("train", train), ("val", val), ("heldout", heldout)):
@@ -224,7 +229,7 @@ def main(argv=None):
 
     s = sub.add_parser("redact", help="redact a string with the current guard"); s.add_argument("text"); s.add_argument("--llm", action="store_true"); s.add_argument("-v", "--verbose", action="store_true"); s.set_defaults(fn=cmd_redact)
 
-    s = sub.add_parser("gen-attacks", help="generate red-team attack sets"); s.add_argument("--n", type=int, default=150); s.add_argument("--seed", type=int, default=42); s.add_argument("--out", default=str(DATA)); s.add_argument("--llm-carriers", action="store_true"); s.set_defaults(fn=cmd_gen)
+    s = sub.add_parser("gen-attacks", help="generate red-team attack sets"); s.add_argument("--n", type=int, default=150); s.add_argument("--seed", type=int, default=42); s.add_argument("--out", default=str(DATA)); s.add_argument("--llm-carriers", action="store_true"); s.add_argument("--domain", default=None, help="industry pack, e.g. insurance"); s.set_defaults(fn=cmd_gen)
 
     s = sub.add_parser("eval", help="evaluate current guard"); s.add_argument("--data", default=str(DATA)); s.add_argument("--set", default="heldout", choices=["train", "val", "heldout"]); s.add_argument("--llm", action="store_true"); s.add_argument("--json", action="store_true"); s.add_argument("--show-misses", action="store_true"); s.set_defaults(fn=cmd_eval)
 

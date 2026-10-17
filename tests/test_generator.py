@@ -22,3 +22,13 @@ def test_split_is_disjoint_and_covers_all():
 def test_seed_people_are_synthetic_with_required_fields():
     for p in SEED_PEOPLE:
         assert {"name", "ssn", "email", "phone", "credit_card", "dob"} <= set(p)
+
+
+def test_domain_pack_generates_attacks_with_domain_pii_types():
+    from piiguard.redteam.domains import DOMAINS
+    from piiguard.redteam.generator import generate_attacks
+    ins = DOMAINS["insurance"]
+    attacks = generate_attacks(n=30, seed=3, people=ins["people"], pii_types=ins["pii_types"], labels=ins["labels"])
+    types = {a["pii_type"] for a in attacks}
+    assert "adjuster_badge" in types and "claim_number" in types
+    assert all(all(sf in a["text"] for sf in a["surface_forms"]) for a in attacks)

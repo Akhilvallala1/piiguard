@@ -41,25 +41,29 @@ LABELS = {"ssn": "SSN", "email": "email", "phone": "phone", "credit_card": "card
 CarrierFn = Callable[[str, str, dict], str]  # (technique, pii_type, person) -> template containing {pii}
 
 
-def _render(template: str, person: dict, pii_type: str, surface: str) -> str:
+def _render(template: str, person: dict, pii_type: str, surface: str, labels: Optional[dict] = None) -> str:
     return template.format(
         pii=surface,
         name=person["name"],
         first=person["name"].split()[0],
         name_url=person["name"].replace(" ", "+"),
-        label=LABELS[pii_type],
+        label=(labels or LABELS)[pii_type],
         key=pii_type,
     )
 
 
-def generate_attacks(n: int, seed: int = 0, carrier_fn: Optional[CarrierFn] = None, techniques: Optional[list[str]] = None) -> list[dict]:
+def generate_attacks(n: int, seed: int = 0, carrier_fn: Optional[CarrierFn] = None, techniques: Optional[list[str]] = None,
+                     people: Optional[list[dict]] = None, pii_types: Optional[list[str]] = None, labels: Optional[dict] = None) -> list[dict]:
     rng = random.Random(seed)
     techniques = techniques or list(ENCODERS)
+    people = people or SEED_PEOPLE
+    pii_types = pii_types or PII_TYPES
+    label_map = {**LABELS, **(labels or {})}
     carriers = list(CARRIERS.items())
     out: list[dict] = []
     for i in range(n):
-        person = rng.choice(SEED_PEOPLE)
-        pii_type = rng.choice(PII_TYPES)
+        person = rng.choice(people)
+        pii_type = rng.choice(pii_types)
         technique = rng.choice(techniques)
         value = person[pii_type]
         surface = encode(technique, value)
@@ -75,7 +79,7 @@ def generate_attacks(n: int, seed: int = 0, carrier_fn: Optional[CarrierFn] = No
         if "{pii}" not in template:
             template = CARRIERS["llm_prompt"]
             carrier_name = "llm_prompt"
-        text = _render(template, person, pii_type, surface)
+        text = _render(template, person, pii_type, surface, label_map)
         out.append({
             "id": f"atk-{seed}-{i:04d}",
             "technique": technique,

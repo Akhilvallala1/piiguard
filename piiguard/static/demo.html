@@ -36,7 +36,10 @@ textarea:focus{outline:none;border-color:rgba(123,224,207,.6);box-shadow:0 0 0 4
 .cta:hover .ico{transform:translate(2px,-1px) scale(1.06)} .cta:active{transform:scale(.98)} .cta:disabled{opacity:.55;cursor:wait}
 .ghost{background:transparent;color:var(--ink);border:1px solid var(--hair2);border-radius:999px;padding:12px 18px;font:500 15px "Geist",sans-serif;cursor:pointer;transition:background .5s var(--ease),border-color .5s var(--ease),transform .5s var(--ease)}
 .ghost:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.3)} .ghost:active{transform:scale(.98)}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}
+.two,.three{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}
+.three{grid-template-columns:1fr 1fr 1fr}
+.pane.mid h3{color:rgba(244,241,234,.7)} .verdict.mid{color:rgba(244,241,234,.75)}
+.pres{color:#06110f;background:rgba(244,241,234,.85);border-radius:6px;padding:1px 7px;font-weight:600}
 .pane{background:rgba(255,255,255,.035);border:1px solid var(--hair);border-radius:1.25rem;padding:20px 22px;min-height:168px;transition:border-color .6s var(--ease)}
 .pane h3{font:500 12px/1 "Geist Mono",monospace;letter-spacing:.14em;text-transform:uppercase;margin-bottom:14px}
 .pane.bad h3{color:var(--leak)} .pane.good h3{color:var(--tok)}
@@ -70,7 +73,7 @@ footer{margin-top:64px;color:var(--mute);font-size:14px;max-width:70ch}
 .reveal.in{opacity:1;transform:none;filter:none}
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.reveal{transition:none;opacity:1;transform:none;filter:none}#feed div{animation:none}}
-@media (max-width:1100px){body{padding:40px 16px 80px}header{grid-template-columns:1fr;gap:20px}.chips{justify-content:flex-start}.span8,.span4,.span6,.span12{grid-column:span 12}.two{grid-template-columns:1fr}}
+@media (max-width:1100px){body{padding:40px 16px 80px}header{grid-template-columns:1fr;gap:20px}.chips{justify-content:flex-start}.span8,.span4,.span6,.span12{grid-column:span 12}.two,.three{grid-template-columns:1fr}}
 </style></head><body><main>
 <header class="reveal">
   <div><span class="eyebrow"><i></i> live · nemoclaw sandbox · crusoe · you.com</span>
@@ -87,10 +90,12 @@ footer{margin-top:64px;color:var(--mute);font-size:14px;max-width:70ch}
       <button class="cta" id="go"><span>Send through the guard</span><span class="ico">↗</span></button>
       <button class="ghost" data-fill="Ticket #48213: Devon Okafor called from (555) 010-2345, DOB 11/02/1979, about a charge on 5555 5555 5555 4444.">Support ticket</button>
       <button class="ghost" data-fill="ssn is nine five six dash seven eight dash nine zero one two, card MTIzNC01Njc4LTkwMTItMzQ1Ng== please verify">Obfuscated</button>
+      <button class="ghost" data-fill="Claim CLM-2026-0048213: adjuster badge ADJ-48213-TX approved policy POL 88-4421-7730 for Maria Chen, callback 555-010-1234. Summarize for the file.">Insurance claim</button>
       <button class="ghost" data-fill="Order #48213 shipped on 2026-10-17, arrives in 3-5 days. Invoice total $1,284.50, port 8080, build 4m12s.">Clean traffic</button>
     </div>
-    <div class="two">
-      <div class="pane bad"><h3>Without piiguard · would leave the machine</h3><div class="t" id="direct"><span class="empty">waiting…</span></div><div class="verdict bad" id="vdirect"></div></div>
+    <div class="three">
+      <div class="pane bad"><h3>Without piiguard · would leave</h3><div class="t" id="direct"><span class="empty">waiting…</span></div><div class="verdict bad" id="vdirect"></div></div>
+      <div class="pane mid"><h3>Microsoft Presidio · would leave</h3><div class="t" id="presidio"><span class="empty">waiting…</span></div><div class="verdict mid" id="vpresidio"></div></div>
       <div class="pane good"><h3>With piiguard · what actually left</h3><div class="t" id="guarded"><span class="empty">waiting…</span></div><div class="verdict good" id="vguarded"></div></div>
     </div>
     <div class="reply" id="reply" hidden><b>What the agent received back · values restored on the host</b><div class="t mono" id="replytext"></div></div>
@@ -148,13 +153,20 @@ async function loadFeed(){
 async function run(){
   const btn = document.getElementById('go'); btn.disabled = true; btn.querySelector('span').textContent = 'Sending…';
   const prompt = document.getElementById('prompt').value;
-  document.getElementById('direct').innerHTML = '<span class="empty">…</span>'; document.getElementById('guarded').innerHTML = '<span class="empty">…</span>';
+  document.getElementById('direct').innerHTML = '<span class="empty">…</span>'; document.getElementById('guarded').innerHTML = '<span class="empty">…</span>'; document.getElementById('presidio').innerHTML = '<span class="empty">…</span>';
   document.getElementById('reply').hidden = true; document.getElementById('search').hidden = true;
   try {
     const r = await fetch('/demo/run', {method:'POST', headers:H, body: JSON.stringify({prompt})});
     const d = await r.json();
     document.getElementById('direct').innerHTML = markLeaks(d.direct.text, d.direct.spans);
     document.getElementById('vdirect').textContent = d.direct.spans.length ? `${d.direct.spans.length} PII value${d.direct.spans.length>1?'s':''} would leave. The sandbox policy allows it.` : 'No PII found. This would leave as-is.';
+    if (d.presidio){
+      const missed = d.presidio.missed || [];
+      let ph = esc(d.presidio.left).replace(/&lt;([A-Z_]+)&gt;/g, (m, k) => `<span class="pres">&lt;${k}&gt;</span>`);
+      for (const v of missed){ ph = ph.split(esc(v)).join(`<span class="leak">${esc(v)}</span>`); }
+      document.getElementById('presidio').innerHTML = ph;
+      document.getElementById('vpresidio').textContent = missed.length ? `${missed.length} of ${d.direct.spans.length} still leave. Presidio has no recognizer for them.` : (d.direct.spans.length ? 'Presidio caught these.' : 'Nothing to redact.');
+    } else { document.getElementById('presidio').innerHTML = '<span class="empty">Presidio not installed</span>'; }
     document.getElementById('guarded').innerHTML = tokify(d.guarded.left);
     document.getElementById('vguarded').textContent = d.guarded.tokens.length ? `0 PII values left. ${d.guarded.tokens.length} token${d.guarded.tokens.length>1?'s':''} held on this host.` : 'Clean traffic passes through untouched.';
     if (d.guarded.reply || d.guarded.error){ document.getElementById('reply').hidden = false; document.getElementById('replytext').textContent = d.guarded.reply || d.guarded.error; }

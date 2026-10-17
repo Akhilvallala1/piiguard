@@ -149,6 +149,21 @@ def _sse(resp: dict):
     yield "data: [DONE]\n\n"
 
 
+_PRESIDIO = {"fn": None, "tried": False}
+
+
+def _presidio():
+    """Lazy, cached Presidio redactor for the live comparison pane (None if presidio is not installed)."""
+    if not _PRESIDIO["tried"]:
+        _PRESIDIO["tried"] = True
+        try:
+            from .bench import presidio_redactor
+            _PRESIDIO["fn"] = presidio_redactor()
+        except Exception as e:  # noqa: BLE001
+            log.warning("presidio unavailable for demo pane: %s", type(e).__name__)
+    return _PRESIDIO["fn"]
+
+
 def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[str] = None, classifier: Optional[Classifier] = None,
                model_allowlist: Optional[list[str]] = None) -> FastAPI:
     upstream = upstream or CrusoeUpstream()
@@ -157,6 +172,8 @@ def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[s
     guard_dir = guard_dir or os.path.join(ROOT, "guard")
     app = FastAPI(title="piiguard proxy")
     state = {"guard": Guard.from_dir(guard_dir, classifier), "events": [], "guard_dir": guard_dir, "classifier": classifier}
+    import threading
+    threading.Thread(target=_presidio, daemon=True).start()
 
     def auth(request: Request):
         header = request.headers.get("authorization", "")
@@ -227,8 +244,17 @@ def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[s
             error = f"upstream failure: {type(e).__name__}"
         search_left = guard.session().redact(prompt).text
         spans = [{"value": v, "type": t[5:].rsplit("_", 1)[0].lower()} for t, v in mapping.items()]
+        presidio = None
+        try:
+            red = _presidio()
+            if red is not None:
+                p_left = red(prompt)
+                presidio = {"left": p_left, "missed": [sp["value"] for sp in spans if sp["value"] in p_left]}
+        except Exception as e:  # noqa: BLE001 - the comparison pane must never break the demo
+            presidio = {"left": prompt, "missed": [sp["value"] for sp in spans], "error": type(e).__name__}
         return {"direct": {"text": prompt, "spans": spans},
-                "guarded": {"left": left, "tokens": list(mapping), "types": sorted(set(types)), "reply": reply, "error": error, "search_left": search_left}}
+                "guarded": {"left": left, "tokens": list(mapping), "types": sorted(set(types)), "reply": reply, "error": error, "search_left": search_left},
+                "presidio": presidio}
 
     @app.get("/v1/models", dependencies=[Depends(auth)])
     def models():
