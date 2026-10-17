@@ -46,3 +46,13 @@ def test_single_atom_nested_quantifiers_still_rejected():
     for pat in ["(a+)+", "(?:\\d*)*", "([a-z]+)*$"]:
         with pytest.raises(ValueError, match="unsafe"):
             RuleSet.from_yaml_text(f"version: 1\nrules:\n  - name: x\n    pattern: '{pat}'\n")
+
+
+def test_probe_catches_exponential_backtracking_under_timeout():
+    with pytest.raises(ValueError, match="too slow"):
+        RuleSet.from_yaml_text("version: 1\nrules:\n  - name: slow\n    pattern: '(?:a|aa)+c'\n")
+
+def test_probe_respects_ignore_case_flag_and_number_words():
+    # the coach's spelled-digit idiom must still be accepted when it is not pathological
+    y = "version: 1\nrules:\n  - name: spelled\n    pattern: '\\b(?:zero|one|two|three|four|five|six|seven|eight|nine)(?:\\s+(?:(?:-|dash)\\s+)?(?:zero|one|two|three|four|five|six|seven|eight|nine))+\\b'\n    ignore_case: true\n"
+    assert RuleSet.from_yaml_text(y).rules[0].regex.flags & __import__("re").IGNORECASE

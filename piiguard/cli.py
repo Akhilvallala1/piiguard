@@ -81,7 +81,12 @@ def cmd_improve(a):
     clf = _classifier(a.llm)
     log = lambda s: print(s, file=sys.stderr, flush=True)
 
-    g0 = Guard.from_dir(ROOT / "guard", clf)
+    if a.start_gen > 1:  # resuming: the true baseline is the gen-0 tag, not whatever is in the working tree now
+        from .coach.gate import GuardRepo
+        g0 = Guard.from_texts(*GuardRepo(ROOT).files_at(a.baseline_tag), classifier=clf)
+        log(f"[resume] baseline from tag {a.baseline_tag}; continuing at gen {a.start_gen}")
+    else:
+        g0 = Guard.from_dir(ROOT / "guard", clf)
     _, h0 = evaluate_attacks(g0, sets["heldout"])
     _, c0 = evaluate_clean(g0, CLEAN_SAMPLES)
     log(f"[gen 0] HELD-OUT leak rate {h0['leak_rate']:.2%} | fp {c0['fp_rate']:.2%} | rules v{g0.rules.version}")
@@ -112,10 +117,16 @@ def cmd_improve(a):
     print(json.dumps({"heldout_before": h0["leak_rate"], "heldout_after": hN["leak_rate"], "fp_before": c0["fp_rate"], "fp_after": cN["fp_rate"]}))
 
 
-def cmd_report(_):
+def cmd_report(a):
     hist = ROOT / "runs" / "history.jsonl"
     if not hist.exists():
         print("no runs yet"); return
+    if a.markdown:
+        from .report import render_markdown
+        rep = ROOT / "runs" / "report.json"
+        history = [json.loads(l) for l in hist.read_text().splitlines() if l.strip()]
+        print(render_markdown(history, json.loads(rep.read_text()) if rep.exists() else None))
+        return
     print(f"{'gen':>3} {'ok':<3} {'val leak before->after':<26} {'fp before->after':<20} rationale")
     for line in hist.read_text().splitlines():
         r = json.loads(line)
@@ -151,9 +162,9 @@ def main(argv=None):
 
     s = sub.add_parser("eval", help="evaluate current guard"); s.add_argument("--data", default=str(DATA)); s.add_argument("--set", default="heldout", choices=["train", "val", "heldout"]); s.add_argument("--llm", action="store_true"); s.add_argument("--json", action="store_true"); s.add_argument("--show-misses", action="store_true"); s.set_defaults(fn=cmd_eval)
 
-    s = sub.add_parser("improve", help="run N self-improvement generations"); s.add_argument("--generations", type=int, default=5); s.add_argument("--start-gen", type=int, default=1); s.add_argument("--data", default=str(DATA)); s.add_argument("--llm", action="store_true"); s.add_argument("--min-delta", type=float, default=0.05); s.add_argument("--max-fp", type=float, default=0.05); s.set_defaults(fn=cmd_improve)
+    s = sub.add_parser("improve", help="run N self-improvement generations"); s.add_argument("--generations", type=int, default=5); s.add_argument("--start-gen", type=int, default=1); s.add_argument("--baseline-tag", default="gen-0"); s.add_argument("--data", default=str(DATA)); s.add_argument("--llm", action="store_true"); s.add_argument("--min-delta", type=float, default=0.05); s.add_argument("--max-fp", type=float, default=0.05); s.set_defaults(fn=cmd_improve)
 
-    sub.add_parser("report", help="print generation history and held-out before/after").set_defaults(fn=cmd_report)
+    s = sub.add_parser("report", help="print generation history and held-out before/after"); s.add_argument("--markdown", action="store_true"); s.set_defaults(fn=cmd_report)
 
     s = sub.add_parser("serve", help="run the guard proxy"); s.add_argument("--host", default="127.0.0.1", help="use 0.0.0.0 (with GUARD_PROXY_TOKEN set) so a NemoClaw sandbox can reach it"); s.add_argument("--port", type=int, default=8787); s.add_argument("--llm", action="store_true"); s.set_defaults(fn=cmd_serve)
 

@@ -51,3 +51,9 @@ class GuardRepo:
 
     def current_files(self) -> tuple[str, str]:
         return (self.guard_dir / "rules.yaml").read_text(), (self.guard_dir / "prompt.md").read_text()
+
+    def files_at(self, ref: str) -> tuple[str, str]:
+        """Guard files as committed at a git ref (e.g. the gen-0 tag), without touching the working tree."""
+        def show(path: str) -> str:
+            return subprocess.run(["git", "show", f"{ref}:{path}"], cwd=self.root, check=True, capture_output=True, text=True).stdout
+        return show("guard/rules.yaml"), show("guard/prompt.md")

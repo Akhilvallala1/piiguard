@@ -10,6 +10,8 @@ from .rules import RuleSet, load_rules
 # A classifier takes (text, prompt) and returns [{"text": str, "type": str}, ...]
 Classifier = Callable[[str, str], list[dict]]
 
+SCAN_TIMEOUT_S = 0.5  # per rule per string; on timeout the whole string is withheld (fail closed)
+
 
 @dataclass
 class Finding:
@@ -40,12 +42,20 @@ class Guard:
         prompt = prompt_file.read_text() if prompt_file.exists() else ""
         return cls(load_rules(path / "rules.yaml"), prompt, classifier)
 
+    @classmethod
+    def from_texts(cls, rules_yaml: str, prompt: str = "", classifier: Optional[Classifier] = None) -> "Guard":
+        return cls(RuleSet.from_yaml_text(rules_yaml), prompt, classifier)
+
     def scan(self, text: str, use_classifier: bool = True) -> list[Finding]:
         found: list[Finding] = []
         for rule in self.rules.rules:
-            for m in rule.regex.finditer(text):
-                if rule.validate(m.group(0)):
-                    found.append(Finding(rule.name, m.group(0), m.start(), m.end(), "regex"))
+            try:
+                for m in rule.regex.finditer(text, timeout=SCAN_TIMEOUT_S):
+                    if rule.validate(m.group(0)):
+                        found.append(Finding(rule.name, m.group(0), m.start(), m.end(), "regex"))
+            except TimeoutError:
+                # Pathological input vs. a rule: never let it through unscanned.
+                return [Finding("scan_timeout", text, 0, len(text), "timeout")]
         if use_classifier and self.classifier is not None:
             for span in self.classifier(text, self.prompt):
                 value = str(span.get("text", ""))

@@ -1,0 +1,8 @@
+[gen 0] HELD-OUT leak rate 76.67% | fp 0.00% | rules v0
+[gen 1] train leak 0.79 | val leak 0.70 | fp 0.00 | 71 misses -> coach
+[gen 1] coach: Add rules that catch the encoded and obfuscated forms seen in the leaks (spaced digits, reversed groups, spelled-out numbers, split lines, unicode separators, URL‑encoding, base64, hex, and fullwidth digits) while avoiding ordinary version numbers, dates, prices, etc. by requiring digit‑centric patterns with spaces or specific encodings.
+[gen 1] accepted: leak rate down 0.20, false positives moved +0.00 (commit 9af5466)
+[gen 2] train leak 0.50 | val leak 0.50 | fp 0.00 | 45 misses -> coach
+[gen 2] coach: Add detection for Base64 and hex-encoded PII (the largest remaining leak sources) and relax the SSN, DOB, and Unicode‑separator patterns to also catch plain‑digit variants without increasing false positives.
+[gen 2] rejected: false positive rate rose by 1.00 (limit 0.05)
+[gen 3] train leak 0.50 | val leak 0.50 | fp 0.00 | 45 misses -> coach

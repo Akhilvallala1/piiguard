@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+
+import regex  # drop-in superset of `re` with match timeouts; used for BOTH the safety probe and runtime scans
 from pathlib import Path
 from typing import Callable
 
@@ -31,29 +33,41 @@ MAX_PATTERN_LEN = 400
 # the probe-timing check below still catches anything slow in practice.
 _ATOM = r"(?:\\.|\[[^\]]*\]|[^()\\\[\]|])"
 _NESTED_QUANT = re.compile(r"\((?:\?:)?" + _ATOM + r"[+*]\)[+*{]")
-_PROBE = ("a" * 40 + "-" + "1" * 40 + "@" + "x" * 40 + "\n") * 20
+# Adversarial probe: long runs of the things PII regexes quantify over (whitespace, digits, number words,
+# fullwidth digits, separators, letters) with NO terminating match, so backtracking has to exhaust itself.
+_PROBE = "\n".join([
+    ("a" * 40 + "-" + "1" * 40 + "@" + "x" * 40) * 5,
+    " " * 600 + "q",
+    ("1 " * 300) + "q",
+    ("nine " * 120) + "q",
+    ("nine - " * 80) + "q",
+    ("\uff11" * 300) + "q",
+    ("12-" * 150) + "q",
+    ("ab" * 300) + "q",
+    ("%39" * 150) + "q",
+])
+PROBE_BUDGET_S = 0.25
 
 
-def check_pattern_safe(name: str, pattern: str) -> None:
+def check_pattern_safe(name: str, compiled) -> None:
     """Reject patterns likely to be catastrophic. The coach is an LLM; its regexes are untrusted."""
+    pattern = compiled.pattern
     if len(pattern) > MAX_PATTERN_LEN:
         raise ValueError(f"regex in rule {name!r} too long ({len(pattern)} > {MAX_PATTERN_LEN})")
     if _NESTED_QUANT.search(pattern):
         raise ValueError(f"regex in rule {name!r} is unsafe: nested quantifier")
-    import time
-    compiled = re.compile(pattern)
-    t0 = time.perf_counter()
-    for _ in compiled.finditer(_PROBE):
-        pass
-    if time.perf_counter() - t0 > 0.25:
-        raise ValueError(f"regex in rule {name!r} is unsafe: too slow on probe input")
+    try:
+        for _ in compiled.finditer(_PROBE, timeout=PROBE_BUDGET_S):
+            pass
+    except TimeoutError as e:
+        raise ValueError(f"regex in rule {name!r} is unsafe: too slow on probe input") from e
 
 
 @dataclass
 class Rule:
     name: str
     pattern: str
-    regex: re.Pattern
+    regex: "regex.Pattern | re.Pattern"
     validator: str | None = None
 
     def validate(self, match_text: str) -> bool:
@@ -79,12 +93,13 @@ class RuleSet:
             validator = raw.get("validator")
             if validator and validator not in VALIDATORS:
                 raise ValueError(f"unknown validator {validator!r} in rule {raw['name']!r}")
+            flags = regex.IGNORECASE if raw.get("ignore_case") else 0
             try:
-                regex = re.compile(raw["pattern"], re.IGNORECASE if raw.get("ignore_case") else 0)
-            except re.error as e:
+                compiled = regex.compile(raw["pattern"], flags)
+            except regex.error as e:
                 raise ValueError(f"invalid regex in rule {raw['name']!r}: {e}") from e
-            check_pattern_safe(str(raw["name"]), raw["pattern"])
-            rules.append(Rule(name=str(raw["name"]), pattern=raw["pattern"], regex=regex, validator=validator))
+            check_pattern_safe(str(raw["name"]), compiled)
+            rules.append(Rule(name=str(raw["name"]), pattern=raw["pattern"], regex=compiled, validator=validator))
         return cls(version=int(data.get("version", 0)), rules=rules, source=text)
 
 

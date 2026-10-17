@@ -45,3 +45,22 @@ def test_redaction_of_overlap_removes_both_values_from_text():
     red = g.redact("Maria 912-34-5678 called")
     assert "912-34-5678" not in red.text and "Maria" not in red.text
     assert red.text.endswith(" called")
+
+
+def test_scan_fails_closed_when_a_rule_times_out():
+    from piiguard.pii.rules import Rule
+    class Hang:
+        pattern = "x"
+        def finditer(self, text, timeout=None):
+            raise TimeoutError("regex timeout")
+    g = make_guard()
+    g.rules.rules.append(Rule(name="hang", pattern="x", regex=Hang()))
+    red = g.redact("Customer note with 912-34-5678 inside")
+    assert red.text == "[PII_SCAN_TIMEOUT_1]"            # whole string withheld, nothing leaks
+    assert red.mapping["[PII_SCAN_TIMEOUT_1]"] == "Customer note with 912-34-5678 inside"
+
+
+def test_guard_from_texts_builds_without_files():
+    from piiguard.pii.guard import Guard
+    g = Guard.from_texts("version: 3\nrules:\n  - name: ssn\n    pattern: '\\b\\d{3}-\\d{2}-\\d{4}\\b'\n", "p")
+    assert g.rules.version == 3 and g.redact("x 912-34-5678").text == "x [PII_SSN_1]"
