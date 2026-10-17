@@ -134,7 +134,7 @@ window.seek = function(t){
   if (i===3){
     const n = document.getElementById('num'), lab = document.getElementById('numlabel');
     let v = 76.7, l = 'generation 0 · hand-written rules';
-    if (p>0.10){ const q=Math.min(1,(p-0.10)/0.18); v = 76.7 - (76.7-16.7)*q; l = q<1?'learning…':'generation 14 · rules only · 1 ms per request'; }
+    if (p>0.06){ const q=Math.min(1,(p-0.06)/0.12); v = 76.7 - (76.7-16.7)*q; l = q<1?'learning…':'generation 14 · rules only · 1 ms per request'; }
     if (p>0.42){ const q=Math.min(1,(p-0.42)/0.10); v = 16.7 - 16.7*q; l = 'generation 14 + Nemotron 3.5 Lightning classifier'; }
     n.textContent = v.toFixed(1); lab.textContent = l;
     document.querySelectorAll('#bench tr[data-sys]').forEach((r,k)=>{ r.style.opacity = p > 0.50 + k*0.03 ? 1 : 0.08; r.classList.toggle('hl', /Presidio/.test(r.dataset.sys) && p>0.6 && p<0.86); });
