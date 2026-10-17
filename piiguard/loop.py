@@ -35,7 +35,17 @@ def run_generation(root: str | Path, gen: int, train: list[dict], val: list[dict
     log(f"[gen {gen}] train leak {train_scores['leak_rate']:.2f} | val leak {val_before['leak_rate']:.2f} | fp {clean_before['fp_rate']:.2f} | {len(misses)} misses -> coach")
 
     rules_yaml, prompt_md = repo.current_files()
-    proposal = coach_fn(misses, rules_yaml, prompt_md, train_scores)
+    try:
+        proposal = coach_fn(misses, rules_yaml, prompt_md, train_scores)
+    except Exception as e:  # noqa: BLE001 - a bad coach turn is a rejected generation, not a crash
+        reason = f"rejected: coach failed to produce a valid proposal ({type(e).__name__}: {str(e)[:160]})"
+        log(f"[gen {gen}] {reason}")
+        record = {"gen": gen, "accepted": False, "reason": reason, "commit": None, "rationale": "", "n_misses": len(misses),
+                  "train_before": train_scores, "val_before": val_before, "val_after": val_before,
+                  "fp_before": clean_before, "fp_after": clean_before, "proposal": None,
+                  "seconds": round(time.time() - t0, 1), "ts": time.strftime("%Y-%m-%dT%H:%M:%S")}
+        _append_history(root, record)
+        return record
     log(f"[gen {gen}] coach: {proposal.rationale}")
 
     repo.stage(proposal.rules_yaml, proposal.prompt_md)
@@ -59,8 +69,12 @@ def run_generation(root: str | Path, gen: int, train: list[dict], val: list[dict
         "proposal": {"rules_yaml": proposal.rules_yaml, "prompt_md": proposal.prompt_md},
         "seconds": round(time.time() - t0, 1), "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }
+    _append_history(root, record)
+    return record
+
+
+def _append_history(root: Path, record: dict) -> None:
     runs = root / "runs"
     runs.mkdir(exist_ok=True)
     with (runs / "history.jsonl").open("a") as f:
         f.write(json.dumps(record) + "\n")
-    return record

@@ -26,8 +26,11 @@ def luhn_ok(s: str) -> bool:
 VALIDATORS: dict[str, Callable[[str], bool]] = {"luhn": luhn_ok}
 
 MAX_PATTERN_LEN = 400
-# A quantifier applied to a group that itself contains a quantifier: (a+)+, (a*)*, (\d+-?)+ ...
-_NESTED_QUANT = re.compile(r"\((?:[^()\\]|\\.)*[+*}](?:[^()\\]|\\.)*\)[+*{]")
+# The classic catastrophic shape: a group whose whole body is ONE unbounded-quantified atom, itself repeated:
+# (a+)+, (?:\d*)*, ([a-z]+)*. Idioms like (?:[a-z0-9-]+\.)+ or (?:\d[ -]?){8} have a separator and are allowed;
+# the probe-timing check below still catches anything slow in practice.
+_ATOM = r"(?:\\.|\[[^\]]*\]|[^()\\\[\]|])"
+_NESTED_QUANT = re.compile(r"\((?:\?:)?" + _ATOM + r"[+*]\)[+*{]")
 _PROBE = ("a" * 40 + "-" + "1" * 40 + "@" + "x" * 40 + "\n") * 20
 
 

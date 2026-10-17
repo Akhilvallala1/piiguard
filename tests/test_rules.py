@@ -35,3 +35,14 @@ def test_rejects_nested_quantifier_regex_from_coach():
 def test_rejects_overlong_pattern():
     with pytest.raises(ValueError, match="too long"):
         RuleSet.from_yaml_text("version: 1\nrules:\n  - name: x\n    pattern: '" + "a" * 600 + "'\n")
+
+
+def test_common_grouped_repetition_idioms_are_allowed():
+    y = "version: 1\nrules:\n  - name: email\n    pattern: '[a-z0-9._%+-]+@(?:[a-z0-9-]+\\.)+[a-z]{2,}'\n  - name: spaced\n    pattern: '\\b(?:\\d[ -]?){8}\\d\\b'\n"
+    rs = RuleSet.from_yaml_text(y)
+    assert [r.name for r in rs.rules] == ["email", "spaced"]
+
+def test_single_atom_nested_quantifiers_still_rejected():
+    for pat in ["(a+)+", "(?:\\d*)*", "([a-z]+)*$"]:
+        with pytest.raises(ValueError, match="unsafe"):
+            RuleSet.from_yaml_text(f"version: 1\nrules:\n  - name: x\n    pattern: '{pat}'\n")

@@ -1,0 +1,38 @@
+[gen 0] HELD-OUT leak rate 76.67% | fp 0.00% | rules v0
+[gen 1] train leak 0.79 | val leak 0.70 | fp 0.00 | 71 misses -> coach
+Traceback (most recent call last):
+  File "/Users/akhilvallala/Desktop/Projects/Hakcathon/piiguard/piiguard/coach/retrospective.py", line 45, in parse_proposal
+    rules = RuleSet.from_yaml_text(rules_yaml)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/akhilvallala/Desktop/Projects/Hakcathon/piiguard/piiguard/pii/rules.py", line 83, in from_yaml_text
+    check_pattern_safe(str(raw["name"]), raw["pattern"])
+  File "/Users/akhilvallala/Desktop/Projects/Hakcathon/piiguard/piiguard/pii/rules.py", line 39, in check_pattern_safe
+    raise ValueError(f"regex in rule {name!r} is unsafe: nested quantifier")
+ValueError: regex in rule 'email' is unsafe: nested quantifier
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/akhilvallala/Desktop/Projects/Hakcathon/piiguard/piiguard/cli.py", line 165, in <module>
+    main()
+  File "/Users/akhilvallala/Desktop/Projects/Hakcathon/piiguard/piiguard/cli.py", line 161, in main
+    a.fn(a)
+  File "/Users/akhilvallala/Desktop/Projects/Hakcathon/piiguard/piiguard/cli.py", line 97, in cmd_improve
+    rec = run_generation(ROOT, gen, sets["train"], sets["val"], CLEAN_SAMPLES, coach, classifier=clf,
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/akhilvallala/Desktop/Projects/Hakcathon/piiguard/piiguard/loop.py", line 38, in run_generation
+    proposal = coach_fn(misses, rules_yaml, prompt_md, train_scores)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/akhilvallala/Desktop/Projects/Hakcathon/piiguard/piiguard/cli.py", line 93, in coach
+    return propose(misses, r, p, s, classifier_enabled=a.llm, history=history)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/akhilvallala/Desktop/Projects/Hakcathon/piiguard/piiguard/coach/retrospective.py", line 122, in propose
+    raise last
+  File "/Users/akhilvallala/Desktop/Projects/Hakcathon/piiguard/piiguard/coach/retrospective.py", line 117, in propose
+    return parse_proposal(raw)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/akhilvallala/Desktop/Projects/Hakcathon/piiguard/piiguard/coach/retrospective.py", line 47, in parse_proposal
+    raise ProposalError(f"proposed rules invalid: {e}") from e
+piiguard.coach.retrospective.ProposalError: proposed rules invalid: regex in rule 'email' is unsafe: nested quantifier

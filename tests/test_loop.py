@@ -48,3 +48,13 @@ def test_coach_receives_only_the_misses(tmp_path):
         return _proposal(BETTER_RULES)
     run_generation(root, gen=1, train=ATTACKS, val=ATTACKS, clean=CLEAN, coach_fn=coach)
     assert seen["ids"] == ["b"]
+
+
+def test_coach_failure_is_recorded_as_rejected_generation_not_crash(tmp_path):
+    root = _repo(tmp_path)
+    def broken_coach(misses, r, p, s):
+        raise RuntimeError("coach produced garbage three times")
+    rec = run_generation(root, gen=1, train=ATTACKS, val=ATTACKS, clean=CLEAN, coach_fn=broken_coach)
+    assert rec["accepted"] is False and "coach" in rec["reason"]
+    assert (root / "guard" / "prompt.md").read_text() == "v0\n"
+    assert (root / "runs" / "history.jsonl").exists()
