@@ -25,6 +25,22 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 log = logging.getLogger("piiguard.proxy")
 
 
+_CORE = re.compile(r"[A-Za-z0-9]{5,}")
+
+
+def _missed_values(text: str, truth: list[str]) -> list[str]:
+    """A ground-truth value still leaks if the value itself, or any 5+ character alphanumeric core of it, is still readable.
+    'MRN 00482137' redacted to '<ORGANIZATION> 00482137' still leaks the record number."""
+    out = []
+    for v in truth:
+        cores = [c for c in _CORE.findall(v) if not c.isalpha() or len(c) >= 6]  # skip short label words like MRN / NPI / POL
+        if v in text or any(c in text for c in cores if not c.isalpha()):
+            out.append(v)
+        elif cores and all(c.isalpha() for c in cores) and v in text:
+            out.append(v)
+    return out
+
+
 def _upstream_error(e: Exception) -> JSONResponse:
     """Never echo upstream detail to the sandbox: it may contain URLs, keys or the redacted payload."""
     log.warning("upstream failure: %s", type(e).__name__)
@@ -225,12 +241,21 @@ def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[s
                 "bench": bench, "rules": {"version": g.rules.version, "count": len(g.rules.rules), "names": [r.name for r in g.rules.rules]},
                 "tags": tags, "classifier": state["classifier"] is not None}
 
+    @app.get("/demo/domains", dependencies=[Depends(auth)])
+    def demo_domains():
+        from .redteam.domains import DOMAINS
+        return {k: {"title": d["title"], "what_counts": d["what_counts"], "preset": d["preset"], "seed_rules": [r["name"] for r in d["seed_rules"]]} for k, d in DOMAINS.items()}
+
     @app.post("/demo/run", dependencies=[Depends(auth)])
     async def demo_run(request: Request):
+        from .redteam.domains import DOMAINS, domain_guard
         body = await request.json()
         prompt = str(body.get("prompt", ""))[:4000]
         model = str(body.get("model") or next(iter(allow)))
-        guard: Guard = state["guard"]
+        domain = body.get("domain") if body.get("domain") in DOMAINS else None
+        guard: Guard = domain_guard(state["guard"], domain)
+        # ground truth: the domain preset's expected values when the prompt is the preset, else what the systems found
+        expected = list(DOMAINS[domain]["preset"]["expected"]) if domain and prompt.strip() == DOMAINS[domain]["preset"]["prompt"] else None
         payload = {"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": 300,
                    "chat_template_kwargs": {"enable_thinking": False}}
         # rules-only pass first (the free layer), then the full guard (rules + routed classifier)
@@ -255,14 +280,20 @@ def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[s
         try:
             red = _presidio()
             if red is not None:
-                p_left = red(prompt)
-                presidio = {"left": p_left, "missed": [sp["value"] for sp in spans if sp["value"] in p_left]}
+                presidio = {"left": red(prompt)}
         except Exception as e:  # noqa: BLE001 - the comparison pane must never break the demo
-            presidio = {"left": prompt, "missed": [sp["value"] for sp in spans], "error": type(e).__name__}
-        return {"direct": {"text": prompt, "spans": spans},
-                "rules_only": {"left": rules_only.text, "tokens": list(rules_only.mapping), "ms": rules_ms},
+            presidio = {"left": prompt, "error": type(e).__name__}
+        truth = expected or sorted({sp["value"] for sp in spans} | set(rules_only.mapping.values()), key=len, reverse=True)
+        def missed(text: str) -> list[str]:
+            return _missed_values(text, truth)
+        rules_missed, guard_missed = missed(rules_only.text), missed(left)
+        if presidio is not None:
+            presidio["missed"] = missed(presidio["left"])
+        return {"direct": {"text": prompt, "spans": [{"value": v, "type": next((sp["type"] for sp in spans if sp["value"] == v), "pii")} for v in truth]},
+                "expected": truth, "domain": domain, "what_counts": DOMAINS[domain]["what_counts"] if domain else None,
+                "rules_only": {"left": rules_only.text, "tokens": list(rules_only.mapping), "ms": rules_ms, "missed": rules_missed},
                 "guarded": {"left": left, "tokens": list(mapping), "types": sorted(set(types)), "reply": reply, "error": error,
-                            "search_left": search_left, "ms": guard_ms, "route": route_info},
+                            "search_left": search_left, "ms": guard_ms, "route": route_info, "missed": guard_missed},
                 "presidio": presidio}
 
     @app.get("/v1/models", dependencies=[Depends(auth)])

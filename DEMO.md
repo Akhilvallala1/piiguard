@@ -6,7 +6,9 @@ Say, before touching the keyboard:
 it unlocks a claim file. A claim number, a policy number, a member ID, a case number: every industry has its own.
 No static detector ships with your identifiers. Microsoft Presidio has recognizers for emails and phone numbers and
 nothing for an adjuster badge. So the question is not 'which PII detector do we buy'. It is 'can the guard learn ours'."
-Then click Insurance claim on the demo page and Send. Three panes: everything leaves; Presidio catches the phone and the
+The page has an Industry row: Insurance claim, Healthcare, Finance, Law firm, General. Each one loads a realistic prompt,
+tells the classifier the domain, adds that domain's seed rules, and grades every pane against the domain's ground truth
+(the line under the buttons says what counts as PII there). Click Insurance claim and Send. Three panes: everything leaves; Presidio catches the phone and the
 name and walks past the badge and the claim; piiguard catches them, because its red team speaks insurance and its coach
 wrote the rules. Point at the egress log: that is what actually left this laptop.
 
