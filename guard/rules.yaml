@@ -1,12 +1,31 @@
-# Generation 0 ruleset. Deliberately basic: the coach agent evolves this file.
-version: 0
-rules:
-  - name: ssn
-    pattern: '\b\d{3}-\d{2}-\d{4}\b'
-  - name: email
-    pattern: '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
-  - name: phone_us
-    pattern: '\b(?:\+1[ .-]?)?(?:\(\d{3}\)|\d{3})[ .-]?\d{3}[ .-]?\d{4}\b'
-  - name: credit_card
-    pattern: '\b(?:\d[ -]?){12,15}\d\b'
-    validator: luhn
+'version': !!int '0'
+'rules':
+- 'name': 'ssn'
+  'pattern': '\b\d{3}-\d{2}-\d{4}\b'
+- 'name': 'email'
+  'pattern': '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
+- 'name': 'phone_us'
+  'pattern': '\b(?:\+1[ .-]?)?(?:\(\d{3}\)|\d{3})[ .-]?\d{3}[ .-]?\d{4}\b'
+- 'name': 'credit_card'
+  'pattern': '\b(?:\d[ -]?){12,15}\d\b'
+  'validator': 'luhn'
+- 'name': 'ssn_spaced'
+  'pattern': '\b\d(?:[\s\-‑\u2011\u00A0]+\d){8}\b'
+- 'name': 'phone_spaced'
+  'pattern': '\b(?:\+1[\s\-‑\u2011\u00A0]*)?\d(?:[\s\-‑\u2011\u00A0]+\d){9}\b'
+- 'name': 'credit_card_spaced'
+  'pattern': '\b\d(?:[\s\-‑\u2011\u00A0]+\d){12,18}\b'
+  'validator': 'luhn'
+- 'name': 'dob_spaced'
+  'pattern': '\b\d{2}[\s\-‑/\u2011\u00A0]+\d{2}[\s\-‑/\u2011\u00A0]+\d{4}\b'
+- 'name': 'fullwidth_digits'
+  'pattern': '[\uFF10-\uFF19]+(?:[\s\-‑/\u2011\u00A0]+[\uFF10-\uFF19]+)+'
+- 'name': 'spelled_digits'
+  'pattern': '\b(?:zero|one|two|three|four|five|six|seven|eight|nine)(?:\s+(?:-|dash)?\s+(?:zero|one|two|three|four|five|six|seven|eight|nine))+\b'
+  'ignore_case': !!bool 'true'
+- 'name': 'split_line_digits'
+  'pattern': '\b\d(?:\n\d)+\b'
+- 'name': 'unicode_separator_digits'
+  'pattern': '\b\d(?:[\u2011\u00A0]+\d)+\b'
+- 'name': 'url_encoded'
+  'pattern': '(?:%[0-9A-Fa-f]{2})+'
