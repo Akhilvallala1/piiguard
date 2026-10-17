@@ -115,6 +115,28 @@ python scripts/demo_leak.py --live           # same request direct vs guarded
 bash nemoclaw/onboard.sh                     # NemoClaw sandbox whose only egress is the guard
 ```
 
+## Using it on your own agent
+
+The guard is a drop-in replacement for the model URL. The agent does not change.
+
+1. On the machine that holds the keys, fill `.env` and start the proxy:
+   ```bash
+   export GUARD_PROXY_TOKEN="$(openssl rand -hex 16)"
+   piiguard serve --host 0.0.0.0 --port 8787 --llm
+   ```
+2. Point the agent at it: base URL `http://<host>:8787/v1`, API key = the proxy token. Any OpenAI-compatible client
+   works. For a NemoClaw sandbox, run `nemoclaw/onboard.sh` (custom provider pointing at the proxy) and apply
+   `nemoclaw/piiguard-egress.yaml` so the sandbox can reach nothing else. Web search goes through `/you/search`.
+3. Let it harden on your traffic and keep the result under review:
+   ```bash
+   piiguard gen-attacks --n 150 && piiguard improve --generations 6 && piiguard prune --gen 7 && piiguard bench --llm
+   ```
+   The product of the loop is `guard/rules.yaml` + `guard/prompt.md` in git: a security reviewer reads a diff, not a model.
+
+Known limits: single host and token auth (a team deployment needs a real identity layer); streaming replies are
+converted, not passed through; names are caught only with the classifier on; the loop has seen a synthetic red
+team, not production traffic.
+
 ## Layout
 
 ```
