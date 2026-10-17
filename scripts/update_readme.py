@@ -37,6 +37,15 @@ def main():
                 f"| insurance held-out leak rate (n={hb.get('n','?')}) | {hb['leak_rate']:.1%} | {ha['leak_rate']:.1%} |\n"
                 f"| false positives on clean traffic | {d['fp_before']['fp_rate']:.1%} | {d['fp_after']['fp_rate']:.1%} |")
         text = section("insurance", body, text)
+    ext = ROOT / "runs" / "external-nemotron-pii.json"
+    if ext.exists():
+        d = json.loads(ext.read_text())
+        rows = ["| system | all labels, entity recall | structured identifiers, recall | records with any leak | ms/text |", "|---|---|---|---|---|"]
+        for name, v in d["systems"].items():
+            rows.append(f"| {name} | {v['entity_recall']:.1%} | {v.get('hard_identifier_recall', 0):.1%} | {v['record_leak_rate']:.1%} | {v['ms_per_text']:.0f} |")
+        rows.append(f"\n{d['n_records']} records, {d['n_entities']} labeled spans, {len(d['domains'])} domains, locale us, seed 7."
+                    + (f" Structured identifiers: {next(iter(d['systems'].values())).get('n_hard', '?')} spans ({', '.join(next(iter(d['systems'].values())).get('hard_labels', [])[:12])}{'…' if len(next(iter(d['systems'].values())).get('hard_labels', [])) > 12 else ''})." if next(iter(d['systems'].values())).get('hard_labels') else ""))
+        text = section("external", "\n".join(rows), text)
     README.write_text(text)
     print("README updated")
 

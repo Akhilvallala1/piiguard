@@ -67,6 +67,11 @@ The Crusoe key lives only in the proxy; the sandbox holds a proxy token.
   (`openshell provider update compatible-endpoint --config OPENAI_BASE_URL=...` if it was created with the wrong URL).
 
 ## Q&A ammo
+- "You wrote the test." Two answers. Our red-team sets are seeded, split, and the coach never sees held-out. And we ran the same
+  systems on NVIDIA's public Nemotron-PII test split, 290 records across 29 domains we did not make. On all labels Presidio leads
+  (65.9% vs 58.3% entity recall) because that dataset labels names, cities, countries, companies and times, which NER covers and
+  regex never will. On structured identifiers, the thing a learnable rule layer is for, piiguard with the classifier reaches 92.8%
+  against Presidio's 68.5%. Both numbers are in the README. We show the one we lose.
 - "Isn't the classifier expensive?" Only paid for when the text earns it. A router scores what the regex rules left behind and
   picks skip / Nemotron 3.5 Lightning (~1 s) / Nemotron 3 Super (~2 s). The page prints the route per request. The policy is one
   pure function; NVIDIA NeMo Switchyard's stage_router is the production home for it.

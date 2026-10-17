@@ -55,6 +55,32 @@ second and a model call per request). Read the table as: how far can the free la
 does the paid layer add. Over time the coach moves the free layer toward what the paid layer catches, which is
 the whole point of the loop.
 
+### External check: NVIDIA Nemotron-PII (data we did not make)
+
+Everything above is scored on attacks our own red team generated. To answer "you wrote the test", we also ran the
+same systems on a stratified sample of NVIDIA's public
+[Nemotron-PII](https://huggingface.co/datasets/nvidia/Nemotron-PII) test split (CC-BY-4.0): real-looking documents
+across 29 domains with human-readable span labels. A span counts as caught if neither it nor its alphanumeric core
+survives redaction. `scripts/eval_external.py` reproduces it.
+
+<!-- external:start -->
+| system | all labels, entity recall | structured identifiers, recall | records with any leak | ms/text |
+|---|---|---|---|---|
+| Microsoft Presidio (default) | 65.9% | 68.5% | 88.6% | 16 |
+| piiguard gen-0 rules | 12.0% | 43.5% | 100.0% | 0 |
+| piiguard current rules | 15.6% | 43.5% | 100.0% | 4 |
+| piiguard current rules + matching industry pack | 15.6% | 43.5% | 100.0% | 5 |
+| piiguard rules + industry pack + Nemotron classifier (routed) | 58.3% | 92.8% | 84.5% | 554 |
+
+290 records, 2630 labeled spans, 29 domains, locale us, seed 7. Structured identifiers: 597 spans (account_number, api_key, bank_routing_number, certificate_license_number, credit_debit_card, customer_id, cvv, date_of_birth, device_identifier, email, employee_id, license_plate…).
+<!-- external:end -->
+
+Read this table honestly. Nemotron-PII labels semantic PII too: first and last names, cities, counties, countries,
+companies, URLs, times. Presidio's named-entity models cover those and our regex-first design was never aimed at them,
+so on all labels Presidio leads. On structured identifiers, the thing a learnable rule layer is for, the picture flips,
+and the classifier closes most of the semantic gap at about a second per request. The leak rate on our adversarial sets
+and the recall on this dataset are different questions; the second one is the one we did not get to choose.
+
 ### Generation history (what the coach proposed, what the gate decided)
 
 <!-- generations:start -->
