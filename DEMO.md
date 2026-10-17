@@ -28,8 +28,26 @@ Point at the held-out line: `X% -> Y%` on attacks the coach never saw.
 `piiguard report` row with `n` -> a rejected proposal and why (false positives rose / no gain).
 
 ## 2:40 Sandbox tie-in (20 s)
-`cat nemoclaw/piiguard-egress.yaml` -> the sandbox's only route is the guard; keys never enter the sandbox.
+Live NemoClaw sandbox `piiguard-agent` (OpenClaw, OpenShell 0.0.116). Its only inference route is the guard proxy:
+
+```bash
+# from inside the sandbox: the agent thinks it is talking to a normal OpenAI endpoint
+nemoclaw piiguard-agent exec -- sh -c 'curl -sk https://inference.local/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d "{\"model\":\"nvidia/Nemotron-3.5-Lightning-30B-A3B\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply OK. Customer SSN 912-34-5678\"}],\"max_tokens\":200}"'
+# on the host: what actually left the machine
+tail -1 runs/proxy-events.jsonl
+#  -> "preview": "Reply OK. Customer SSN [PII_SSN_1]"
+```
+
+`nemoclaw piiguard-agent status` shows Provider: compatible-endpoint -> http://host.openshell.internal:8787/v1.
+The Crusoe key lives only in the proxy; the sandbox holds a proxy token.
 "NemoClaw decides where. piiguard decides what. Together you can actually walk away."
+
+## Setup notes (for the README / Q&A)
+- Installer bug on nvm-managed Node: it rejects the shims it just wrote. Workaround: move `~/.local/bin/nemoclaw*` aside and run `nemoclaw onboard` directly.
+- OpenShell routes a custom endpoint literally; `127.0.0.1` is the sandbox's loopback. Use `http://host.openshell.internal:8787/v1`
+  (`openshell provider update compatible-endpoint --config OPENAI_BASE_URL=...` if it was created with the wrong URL).
 
 ## Q&A ammo
 - Why not just a bigger model? The guard runs on a 3B-active Nemotron; the coach is expensive but runs offline.

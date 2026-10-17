@@ -60,8 +60,14 @@ its own, on attacks its coach never saw.
 | 6 | no | 33% → 33% | 0% → 0% | — |  *(rejected)* |
 | 7 | no | 33% → 33% | 0% → 0% | — |  *(rejected)* |
 | 8 | no | 33% → 33% | 0% → 0% | — |  *(rejected)* |
+| 9 | no | 33% → 40% | 0% → 0% | — | Add generic detectors for Base64- and hex-encoded PII that decode and validate against plain rules, plus a gen *(rejected)* |
+| 10 | no | 33% → 10% | 0% → 8% | — | Add generic detectors that rely on validators to catch encoded or obfuscated PII without relying on label pref *(rejected)* |
+| 11 | no | 33% → 37% | 0% → 8% | — | Add broad-but-validated detectors for Base64 and hex encoded PII, reversed digit sequences, normalized separat *(rejected)* |
+| 12 | no | 33% → 33% | 0% → 0% | — |  *(rejected)* |
+| 13 | no | 33% → 33% | 0% → 0% | — |  *(rejected)* |
+| 14 | yes | 33% → 17% | 0% → 0% | bfd0300 | Add broad-but-validated detectors for base64, hex, and reversed encoded PII that decode and validate against p |
 
-**Held-out attacks (never shown to the coach, n=30): leak rate 76.7% → 26.7%. False positives on clean traffic: 0.0% → 0.0%.**
+**Held-out attacks (never shown to the coach, n=30): leak rate 76.7% → 16.7%. False positives on clean traffic: 0.0% → 0.0%.**
 <!-- generations:end -->
 
 Every accepted generation is a git tag (`git tag --list 'gen-*'`); `git diff gen-0 gen-3 -- guard/` shows
