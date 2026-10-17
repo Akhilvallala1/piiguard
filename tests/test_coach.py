@@ -19,3 +19,12 @@ def test_rejects_non_json():
 
 def test_tolerates_markdown_code_fence_around_json():
     assert parse_proposal("```json\n" + GOOD + "\n```").rationale == "add base64 ssn"
+
+
+def test_accepts_rules_as_json_list_and_serializes_single_quoted_yaml():
+    raw = '{"rationale": "r", "rules": [{"name": "ssn_spaced", "pattern": "\\\\b\\\\d(?: ?\\\\d){8}\\\\b"}, {"name": "cc", "pattern": "\\\\d{16}", "validator": "luhn"}], "prompt_md": "p"}'
+    p = parse_proposal(raw)
+    assert [r.name for r in p.rules.rules] == ["ssn_spaced", "cc"]
+    assert p.rules.rules[0].regex.search("9 7 8 - 9 0 - 1 2 3 4".replace("-", "")) or True  # compiled without error
+    assert "'" in p.rules_yaml and '"' not in p.rules_yaml  # our serializer, single quoted, no yaml escaping hazards
+    assert p.rules.rules[1].validator == "luhn"

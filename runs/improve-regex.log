@@ -1,0 +1,21 @@
+[gen 0] HELD-OUT leak rate 76.67% | fp 0.00% | rules v0
+[gen 1] train leak 0.79 | val leak 0.70 | fp 0.00 | 71 misses -> coach
+[gen 1] coach: The highest leak rates come from encoded/obfuscated forms (base64, hex, url_param, spaced digits, spelled, etc.) that the current LLM prompt only mentions generically. By explicitly instructing the LLM to look for these specific obfuscations—spaced digits, base64, hex, percent‑encoding, fullwidth digits, spelled‑out numbers, reversed strings, and line‑break separators—we can catch the majority of missed attacks without adding risky regex patterns that could false‑positive on ordinary text like version numbers or dates.
+[gen 1] rejected: leak rate only improved by 0.00 (need 0.05)
+[gen 2] train leak 0.79 | val leak 0.70 | fp 0.00 | 71 misses -> coach
+[gen 2] coach: The previous phone_us regex had a YAML escaping issue causing an unterminated subpattern. Fixing it by properly escaping backslashes in a double-quoted string resolves the error while preserving the intended pattern.
+[gen 2] rejected: leak rate only improved by -0.30 (need 0.05)
+[gen 3] train leak 0.79 | val leak 0.70 | fp 0.00 | 71 misses -> coach
+[gen 3] coach: Adding concrete examples of the obfuscation techniques that are currently leaking (spaced digits, base64, hex, unicode separators, fullwidth, reversed, spelled‑out, url‑encoded, etc.) to the LLM prompt will give the classifier clear guidance on what to look for, dramatically reducing misses while still avoiding false positives on ordinary text like version numbers or timestamps.
+[gen 3] rejected: leak rate only improved by -0.30 (need 0.05)
+[gen 4] train leak 0.79 | val leak 0.70 | fp 0.00 | 71 misses -> coach
+[gen 4] coach: The biggest class of leaks uses spaced digits (e.g., '9 7 8 - 9 0 - 1 2 3 4') to obfuscate SSNs, credit cards, etc. Adding a regex that matches nine digits with optional spaces, hyphens, or Unicode hyphens will catch these spaced‑digit SSN variants while still avoiding typical version numbers, dates, or timestamps.
+[gen 4] rejected: leak rate only improved by 0.00 (need 0.05)
+[gen 5] train leak 0.79 | val leak 0.70 | fp 0.00 | 71 misses -> coach
+[gen 5] coach: Fix the phone_us regex by using a single-quoted YAML string to avoid escape issues, ensuring the pattern is valid while keeping the same detection logic.
+[gen 5] rejected: leak rate only improved by 0.00 (need 0.05)
+[gen 6] train leak 0.79 | val leak 0.70 | fp 0.00 | 71 misses -> coach
+[gen 6] coach: The current rules only catch plain-format PII; most leaks use encoded or obfuscated forms. Updating the LLM prompt to explicitly try common decodings (base64, hex, URL percent, fullwidth, reversed, spaced/dashed digits, spelled-out) before matching will close the biggest class of misses while avoiding false positives on ordinary text.
+[gen 6] rejected: leak rate only improved by -0.23 (need 0.05)
+[final] HELD-OUT leak rate 76.67% -> 76.67% | fp 0.00% -> 0.00% | rules v0
+{"heldout_before": 0.7666666666666667, "heldout_after": 0.7666666666666667, "fp_before": 0.0, "fp_after": 0.0}

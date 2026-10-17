@@ -86,7 +86,11 @@ def cmd_improve(a):
     _, c0 = evaluate_clean(g0, CLEAN_SAMPLES)
     log(f"[gen 0] HELD-OUT leak rate {h0['leak_rate']:.2%} | fp {c0['fp_rate']:.2%} | rules v{g0.rules.version}")
 
-    coach = (lambda misses, r, p, s: propose(misses, r, p, s))
+    hist_path = ROOT / "runs" / "history.jsonl"
+
+    def coach(misses, r, p, s):
+        history = [json.loads(l) for l in hist_path.read_text().splitlines() if l.strip()] if hist_path.exists() else []
+        return propose(misses, r, p, s, classifier_enabled=a.llm, history=history)
     start = a.start_gen
     records = []
     for gen in range(start, start + a.generations):
