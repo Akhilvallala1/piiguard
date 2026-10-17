@@ -124,9 +124,13 @@ def cmd_report(_):
 
 def cmd_serve(a):
     import uvicorn
-    from .proxy import create_app
-    app = create_app(classifier=_classifier(a.llm))
-    uvicorn.run(app, host=a.host, port=a.port, log_level="warning")
+    from .proxy import create_app, resolve_serve_config
+    cfg = resolve_serve_config(a.host, os.environ.get("GUARD_PROXY_TOKEN"))
+    if cfg.generated:
+        print(f"GUARD_PROXY_TOKEN not set; using one-off token: {cfg.token}", file=sys.stderr)
+    app = create_app(token=cfg.token, classifier=_classifier(a.llm))
+    print(f"piiguard proxy on http://{cfg.host}:{a.port}  (llm classifier: {'on' if a.llm else 'off'})", file=sys.stderr)
+    uvicorn.run(app, host=cfg.host, port=a.port, log_level="warning")
 
 
 def main(argv=None):
@@ -145,7 +149,7 @@ def main(argv=None):
 
     sub.add_parser("report", help="print generation history and held-out before/after").set_defaults(fn=cmd_report)
 
-    s = sub.add_parser("serve", help="run the guard proxy"); s.add_argument("--host", default="0.0.0.0"); s.add_argument("--port", type=int, default=8787); s.add_argument("--llm", action="store_true"); s.set_defaults(fn=cmd_serve)
+    s = sub.add_parser("serve", help="run the guard proxy"); s.add_argument("--host", default="127.0.0.1", help="use 0.0.0.0 (with GUARD_PROXY_TOKEN set) so a NemoClaw sandbox can reach it"); s.add_argument("--port", type=int, default=8787); s.add_argument("--llm", action="store_true"); s.set_defaults(fn=cmd_serve)
 
     a = p.parse_args(argv)
     a.fn(a)

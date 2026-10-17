@@ -53,3 +53,32 @@ def test_upstream_failure_returns_502_json_not_500():
     assert r.status_code == 502 and "no route" in r.json()["error"]
     r2 = client.get("/you/search", params={"q": "x"}, headers={"Authorization": "Bearer t"})
     assert r2.status_code == 502
+
+
+def test_tool_call_arguments_and_tool_results_are_redacted():
+    up = FakeUpstream()
+    client = TestClient(create_app(upstream=up, token="t"))
+    msgs = [
+        {"role": "assistant", "content": None, "tool_calls": [{"id": "c1", "type": "function", "function": {"name": "crm", "arguments": "{\"ssn\": \"912-34-5678\"}"}}]},
+        {"role": "tool", "tool_call_id": "c1", "content": "record email d.okafor@example.com"},
+        {"role": "user", "content": [{"type": "text", "text": "card 4111 1111 1111 1111"}, {"type": "input_text", "text": "phone 555-010-1234"}]},
+    ]
+    client.post("/v1/chat/completions", headers={"Authorization": "Bearer t"}, json={"model": "m", "messages": msgs})
+    sent = json.dumps(up.seen[0])
+    for v in ("912-34-5678", "d.okafor@example.com", "4111 1111 1111 1111", "555-010-1234"):
+        assert v not in sent, v
+
+
+def test_tokens_are_unique_across_messages_and_restore_is_correct():
+    class Echo(FakeUpstream):
+        def chat(self, payload):
+            self.seen.append(payload)
+            both = payload["messages"][0]["content"] + " | " + payload["messages"][1]["content"]
+            return {"choices": [{"index": 0, "message": {"role": "assistant", "content": both}}]}
+    up = Echo()
+    client = TestClient(create_app(upstream=up, token="t"))
+    r = client.post("/v1/chat/completions", headers={"Authorization": "Bearer t"},
+                    json={"model": "m", "messages": [{"role": "user", "content": "A 912-34-5678"}, {"role": "user", "content": "B 923-45-6789"}]})
+    sent = [m["content"] for m in up.seen[0]["messages"]]
+    assert sent == ["A [PII_SSN_1]", "B [PII_SSN_2]"]
+    assert r.json()["choices"][0]["message"]["content"] == "A 912-34-5678 | B 923-45-6789"

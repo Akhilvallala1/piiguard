@@ -58,31 +58,47 @@ class Guard:
         return _merge_overlaps(found)
 
     def redact(self, text: str) -> Redaction:
-        findings = self.scan(text)
-        mapping: dict[str, str] = {}
-        value_to_token: dict[str, str] = {}
-        counters: dict[str, int] = {}
-        out: list[str] = []
-        cursor = 0
-        for f in findings:
-            value = text[f.start:f.end]
-            token = value_to_token.get(value)
-            if token is None:
-                counters[f.type] = counters.get(f.type, 0) + 1
-                token = f"[PII_{f.type.upper()}_{counters[f.type]}]"
-                value_to_token[value] = token
-                mapping[token] = value
-            out.append(text[cursor:f.start])
-            out.append(token)
-            cursor = f.end
-        out.append(text[cursor:])
-        return Redaction("".join(out), mapping, findings)
+        return self.session().redact(text)
+
+    def session(self) -> "RedactionSession":
+        """One session per outbound request: tokens stay unique and the mapping is shared across all strings."""
+        return RedactionSession(self)
 
     @staticmethod
     def restore(text: str, mapping: dict[str, str]) -> str:
         for token, value in mapping.items():
             text = text.replace(token, value)
         return text
+
+
+class RedactionSession:
+    def __init__(self, guard: "Guard"):
+        self.guard = guard
+        self.mapping: dict[str, str] = {}
+        self.findings: list[Finding] = []
+        self._value_to_token: dict[str, str] = {}
+        self._counters: dict[str, int] = {}
+
+    def redact(self, text: str) -> Redaction:
+        findings = self.guard.scan(text)
+        out: list[str] = []
+        cursor = 0
+        local: dict[str, str] = {}
+        for f in findings:
+            value = text[f.start:f.end]
+            token = self._value_to_token.get(value)
+            if token is None:
+                self._counters[f.type] = self._counters.get(f.type, 0) + 1
+                token = f"[PII_{f.type.upper()}_{self._counters[f.type]}]"
+                self._value_to_token[value] = token
+                self.mapping[token] = value
+            local[token] = value
+            out.append(text[cursor:f.start])
+            out.append(token)
+            cursor = f.end
+        out.append(text[cursor:])
+        self.findings.extend(findings)
+        return Redaction("".join(out), local, findings)
 
 
 def _merge_overlaps(findings: list[Finding]) -> list[Finding]:

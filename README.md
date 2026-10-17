@@ -53,7 +53,8 @@ piiguard report                              # history + held-out before/after
 Live demo pieces:
 
 ```bash
-piiguard serve --port 8787 --llm             # the guard proxy (holds the Crusoe + You.com keys)
+export GUARD_PROXY_TOKEN="$(openssl rand -hex 16)"
+piiguard serve --host 0.0.0.0 --port 8787 --llm   # the guard proxy (holds the Crusoe + You.com keys)
 python scripts/demo_leak.py --live           # same request direct vs guarded
 bash nemoclaw/onboard.sh                     # NemoClaw sandbox whose only egress is the guard
 ```
@@ -85,4 +86,7 @@ runs/                                history.jsonl, report.json, proxy-events.js
 - The coach is an LLM writing regexes. Every proposed pattern is length-capped, rejected if it has nested
   quantifiers, and timed against a probe string before it is accepted (ReDoS guard).
 - Overlapping findings are merged into their union span so no partial value survives redaction.
+- The proxy inspects every string in the request (tool-call arguments, tool results, all content parts),
+  uses one token namespace per request, binds to loopback by default, and refuses a non-loopback bind
+  without an explicit token. Tokens are compared in constant time.
 - All seed PII is synthetic: never-issued 9xx SSNs, 555-01xx phones, public card test numbers, example.com emails.

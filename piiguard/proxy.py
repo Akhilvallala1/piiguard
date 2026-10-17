@@ -2,10 +2,14 @@
 Outbound payloads are redacted to reversible tokens; inbound responses are restored so the agent still works."""
 from __future__ import annotations
 
+import hmac
 import json
 import os
+import secrets
+import sys
 import time
-from typing import Optional
+from dataclasses import dataclass
+from typing import Any, Optional
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -42,33 +46,42 @@ class CrusoeUpstream:
         return r.json()
 
 
-def _redact_messages(guard: Guard, messages: list[dict]) -> tuple[list[dict], dict, list[str]]:
-    mapping: dict[str, str] = {}
-    types: list[str] = []
-    out = []
-    for m in messages:
-        m = dict(m)
-        content = m.get("content")
-        if isinstance(content, str):
-            red = guard.redact(content)
-            m["content"], found = red.text, red
-        elif isinstance(content, list):
-            parts, found = [], None
-            for part in content:
-                if isinstance(part, dict) and part.get("type") == "text":
-                    red = guard.redact(part.get("text", ""))
-                    part = {**part, "text": red.text}
-                    mapping.update(red.mapping)
-                    types += [f.type for f in red.findings]
-                parts.append(part)
-            m["content"] = parts
-        else:
-            found = None
-        if found is not None:
-            mapping.update(found.mapping)
-            types += [f.type for f in found.findings]
-        out.append(m)
-    return out, mapping, types
+# Keys whose string values are protocol, not content. Everything else is inspected (deny by default).
+_SKIP_KEYS = {"model", "role", "type", "id", "tool_call_id", "finish_reason", "object"}
+
+
+def _walk(session, node: Any, key: Optional[str] = None) -> Any:
+    if isinstance(node, str):
+        return node if key in _SKIP_KEYS else session.redact(node).text
+    if isinstance(node, list):
+        return [_walk(session, x, key) for x in node]
+    if isinstance(node, dict):
+        return {k: _walk(session, v, k) for k, v in node.items()}
+    return node
+
+
+def _redact_payload(guard: Guard, payload: dict) -> tuple[dict, dict, list[str]]:
+    """Redact every string anywhere in the request (messages, tool_calls arguments, tool results, all content parts)."""
+    session = guard.session()
+    redacted = _walk(session, payload)
+    return redacted, session.mapping, [f.type for f in session.findings]
+
+
+@dataclass
+class ServeConfig:
+    host: str
+    token: str
+    generated: bool = False
+
+
+def resolve_serve_config(host: str, token: Optional[str]) -> ServeConfig:
+    loopback = host in ("127.0.0.1", "localhost", "::1")
+    if token:
+        return ServeConfig(host, token)
+    if not loopback:
+        print(f"refusing to bind {host} without GUARD_PROXY_TOKEN set (the proxy holds your provider keys)", file=sys.stderr)
+        raise SystemExit(2)
+    return ServeConfig(host, secrets.token_urlsafe(24), generated=True)
 
 
 def _restore_response(resp: dict, mapping: dict[str, str]) -> dict:
@@ -88,14 +101,15 @@ def _sse(resp: dict):
 
 def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[str] = None, classifier: Optional[Classifier] = None) -> FastAPI:
     upstream = upstream or CrusoeUpstream()
-    token = token or os.environ.get("GUARD_PROXY_TOKEN", "guard-dev-token")
+    token = token or os.environ.get("GUARD_PROXY_TOKEN") or secrets.token_urlsafe(24)
     guard_dir = guard_dir or os.path.join(ROOT, "guard")
     app = FastAPI(title="piiguard proxy")
     state = {"guard": Guard.from_dir(guard_dir, classifier), "events": [], "guard_dir": guard_dir, "classifier": classifier}
 
     def auth(request: Request):
         header = request.headers.get("authorization", "")
-        if header != f"Bearer {token}" and request.headers.get("x-api-key") != token:
+        presented = header[7:] if header.lower().startswith("bearer ") else request.headers.get("x-api-key", "")
+        if not hmac.compare_digest(presented.encode(), token.encode()):
             raise HTTPException(401, "missing or invalid guard token")
 
     def record(route: str, mapping: dict, types: list[str], preview: str):
@@ -128,9 +142,10 @@ def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[s
     async def chat(request: Request):
         payload = await request.json()
         guard: Guard = state["guard"]
-        messages, mapping, types = _redact_messages(guard, payload.get("messages", []))
         want_stream = bool(payload.get("stream"))
-        payload = {**payload, "messages": messages, "stream": False}
+        payload, mapping, types = _redact_payload(guard, payload)
+        payload["stream"] = False
+        messages = payload.get("messages") or []
         record("chat", mapping, types, json.dumps(messages[-1].get("content", ""))[:160] if messages else "")
         try:
             resp = upstream.chat(payload)

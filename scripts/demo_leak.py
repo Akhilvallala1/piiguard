@@ -31,7 +31,7 @@ def main():
     ap.add_argument("--live", action="store_true")
     ap.add_argument("--proxy", default="http://127.0.0.1:8787")
     a = ap.parse_args()
-    token = os.environ.get("GUARD_PROXY_TOKEN", "guard-dev-token")
+    token = os.environ.get("GUARD_PROXY_TOKEN") or sys.exit("set GUARD_PROXY_TOKEN to the token the proxy printed")
     payload = {"model": os.environ.get("WORKER_MODEL", "nvidia/nemotron-3.5-lightning-30b-a3b"),
                "messages": [{"role": "user", "content": TASK}], "max_tokens": 200}
 

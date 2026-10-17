@@ -3,9 +3,10 @@
 # The agent inside the sandbox never holds the Crusoe key; the guard proxy holds it and redacts outbound traffic.
 #
 # Prereqs: Docker Desktop running; `nemoclaw` CLI installed (curl -fsSL https://www.nvidia.com/nemoclaw.sh | bash);
-#          the guard proxy running on the host:  piiguard serve --port 8787
+#          the guard proxy running on the host, reachable from the sandbox bridge:
+#            export GUARD_PROXY_TOKEN="$(openssl rand -hex 16)"; piiguard serve --host 0.0.0.0 --port 8787 --llm
 set -euo pipefail
-: "${GUARD_PROXY_TOKEN:=guard-dev-token}"
+: "${GUARD_PROXY_TOKEN:?set GUARD_PROXY_TOKEN to the same token the proxy was started with}"
 : "${SANDBOX_NAME:=piiguard-agent}"
 : "${NEMOCLAW_MODEL:=nvidia/nemotron-3.5-lightning-30b-a3b}"
 # host.openshell.internal is how a sandbox reaches services on the host through the OpenShell gateway.
