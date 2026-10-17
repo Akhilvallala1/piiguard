@@ -133,3 +133,19 @@ def test_events_are_written_to_the_configured_path_only(tmp_path, monkeypatch):
     client = TestClient(create_app(upstream=FakeUpstream(), token="t"))
     client.post("/v1/chat/completions", headers={"Authorization": "Bearer t"}, json={"model": "m", "messages": [{"role": "user", "content": "ssn 912-34-5678"}]})
     assert target.exists() and "PII_SSN_1" in target.read_text()
+
+
+def test_crusoe_upstream_retries_transient_429_then_succeeds(monkeypatch):
+    import httpx
+    from piiguard.proxy import CrusoeUpstream
+    calls = {"n": 0}
+    def handler(request):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            return httpx.Response(429, json={"error": "rate limited"})
+        return httpx.Response(200, json={"choices": [{"index": 0, "message": {"role": "assistant", "content": "ok"}}]})
+    up = CrusoeUpstream()
+    up.http = httpx.Client(transport=httpx.MockTransport(handler), timeout=5)
+    up.backoff = 0
+    assert up.chat({"model": "m", "messages": []})["choices"][0]["message"]["content"] == "ok"
+    assert calls["n"] == 3

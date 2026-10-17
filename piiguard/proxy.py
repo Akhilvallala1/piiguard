@@ -39,11 +39,23 @@ class CrusoeUpstream:
         self.you_url = os.environ.get("YOU_SEARCH_URL", "https://api.you.com/v1/search")
         self.you_key = os.environ.get("YDC_API_KEY", "")
         self.http = httpx.Client(timeout=120)
+        self.retries = int(os.environ.get("PIIGUARD_UPSTREAM_RETRIES", "4"))
+        self.backoff = 1.0
 
     def chat(self, payload: dict) -> dict:
-        r = self.http.post(f"{self.base}/chat/completions", json=payload, headers={"Authorization": f"Bearer {self.key}"})
-        r.raise_for_status()
-        return r.json()
+        """Crusoe's shared endpoint answers 429/503 under load; retry with backoff so the agent sees a reply, not an error."""
+        last: Optional[httpx.Response] = None
+        for attempt in range(self.retries + 1):
+            r = self.http.post(f"{self.base}/chat/completions", json=payload, headers={"Authorization": f"Bearer {self.key}"})
+            if r.status_code not in (429, 503):
+                r.raise_for_status()
+                return r.json()
+            last = r
+            if attempt < self.retries:
+                time.sleep(self.backoff * (2 ** attempt))
+        assert last is not None
+        last.raise_for_status()
+        return last.json()
 
     def models(self) -> dict:
         r = self.http.get(f"{self.base}/models", headers={"Authorization": f"Bearer {self.key}"})
