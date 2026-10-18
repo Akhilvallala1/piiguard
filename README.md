@@ -25,6 +25,39 @@ piiguard is the missing content layer, and it is built to get better on its own:
 Everything in this repository was written during the event. The design is informed by an earlier,
 unrelated guardrail project by the same author, but no code was reused.
 
+## A worked example: an insurance claims assistant
+
+An insurer deploys an agent that helps adjusters close claims. It runs inside a NemoClaw sandbox because the
+security team insists on isolation. The policy allows two hosts: Crusoe for the model, You.com to look up repair
+shops. Everything else is blocked.
+
+An adjuster types: *"Claim CLM-2026-0048213, adjuster badge ADJ-48213-TX, policy POL 88-4421-7730 for Maria Chen,
+callback 555-010-1234. Find three body shops near her and draft the approval."*
+
+**Without piiguard.** The agent builds a web search: `body shops near Maria Chen 555-010-1234 claim CLM-2026-0048213`.
+OpenShell checks the host. You.com is allowed. The query leaves. A customer name, a phone number and a claim number
+are now in a third-party search log. Then the agent sends the whole ticket to the model endpoint. Also allowed.
+Every value leaves again. The policy worked exactly as written. Nobody broke a rule. The data still left.
+
+**With piiguard.** The sandbox's only route is the proxy on the host. The search query that leaves is
+`body shops near [PII_NAME_1] [PII_PHONE_US_1] claim [PII_CLAIM_NUMBER_1]`. The model prompt that leaves has tokens
+where the badge, claim, policy, name and phone were. The model drafts the approval around the tokens. On the way
+back, piiguard swaps the real values in, so the adjuster sees "Approval for Maria Chen, claim CLM-2026-0048213" and
+the agent finished its job. The egress log on the host shows exactly what left: five tokens, zero values.
+
+**Why it had to learn.** On day one nobody at the insurer wrote a rule for adjuster badges. The insurance pack's red
+team generated attacks with badges hidden in logs, URLs and spelled-out digits; the coach wrote the rules; the gate
+kept the ones that worked (`gen-22`, `gen-23`: insurance held-out leak 90% → 20%). When a new claim-number format
+appears, the red team picks it up from the pack, the coach adapts, held-out stays honest, and the security reviewer
+reads a git diff of two regex lines, not a model.
+
+**Why Presidio alone would not have done it.** Run the same ticket through Presidio and the phone and the name are
+caught, the policy number is mislabeled as a phone, and the badge and claim number pass through untouched. It has
+no recognizer for them and no way to grow one. The demo page shows all of this on the "Insurance claim" preset.
+
+Swap the nouns and it is the same story for a hospital's discharge-note agent with record numbers, a bank's wire
+desk with routing numbers, or a law firm's paralegal agent with docket numbers. Those four are the presets.
+
 ## Results
 
 All numbers below are produced by the code in this repo during the event and injected by
