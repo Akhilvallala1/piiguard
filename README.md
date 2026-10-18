@@ -184,6 +184,10 @@ caught. Generations 14 through 21 shipped without it until the coach rediscovere
 generations later. With the memory gate on, generation 14 would have been sent back with the shape named.
 
 <!-- memory:start -->
+Live check with memory on (insurance pack, generations 24 and 25, ledger seeded with the 42 shapes the current rules
+catch): both proposals were rejected for no validation gain, and generation 24's proposal would additionally have
+dropped two remembered shapes, a split-line claim number and a split-line adjuster badge, which the ledger named.
+The coach's rationales now cite the precedent rules it was shown.
 <!-- memory:end -->
 
 ### Unlearning, with a tripwire
