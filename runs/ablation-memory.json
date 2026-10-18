@@ -1,0 +1,28 @@
+{
+  "start": {
+    "leak": 0.8365384615384616,
+    "fp": 0.0
+  },
+  "arms": [
+    {
+      "arm": "memory off",
+      "generations": 4,
+      "accepted": 2,
+      "regressions_flagged": 0,
+      "silent_regressions_in_accepted": 0,
+      "heldout_leak": 0.7115384615384616,
+      "fp": 0.0,
+      "rules": 33
+    },
+    {
+      "arm": "memory on",
+      "generations": 4,
+      "accepted": 1,
+      "regressions_flagged": 2,
+      "silent_regressions_in_accepted": 0,
+      "heldout_leak": 0.6538461538461539,
+      "fp": 0.0,
+      "rules": 28
+    }
+  ]
+}

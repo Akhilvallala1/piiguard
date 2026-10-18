@@ -188,6 +188,22 @@ Live check with memory on (insurance pack, generations 24 and 25, ledger seeded 
 catch): both proposals were rejected for no validation gain, and generation 24's proposal would additionally have
 dropped two remembered shapes, a split-line claim number and a split-line adjuster badge, which the ledger named.
 The coach's rationales now cite the precedent rules it was shown.
+
+**Controlled comparison on Nemotron-PII.** Two isolated clones, both reset to the generation-14 rules, both given the
+same Nemotron-PII training slice (184 train, 59 validation documents, structured identifiers as targets), four
+generations each, scored on 104 held-out Nemotron-PII documents the coach never saw (`scripts/compare_arms.py`):
+
+| arm | accepted | regressions flagged | final rules | held-out leak, rules only | held-out leak, rules + classifier |
+|---|---|---|---|---|---|
+| starting rules (gen-14) | | | 13 | 83.7% | 21.2% |
+| memory off | 2 of 4 | 0 | 33 | 71.2% | 13.5% |
+| memory on | 1 of 4 | 2 | 28 | **65.4%** | 14.4% |
+
+With rules alone, the memory arm leaked 6 points less on held-out with 5 fewer rules and one accepted generation
+instead of two: the gate refused a proposal (gen 204) that improved validation by 5 points while dropping an API key,
+two UUID device identifiers, a routing number and a hex token the previous rules caught. With the classifier behind
+the rules the two arms are within noise of each other on this sample. One run, 104 documents: suggestive, not
+conclusive, and reported as such.
 <!-- memory:end -->
 
 ### Unlearning, with a tripwire
@@ -258,6 +274,51 @@ Known limits: single host and token auth (a team deployment needs a real identit
 converted, not passed through; names are caught only with the classifier on; the loop has seen a synthetic red
 team, not production traffic.
 
+### As an OpenShell plugin: supervisor middleware
+
+OpenShell's network policy decides *where* an agent may talk; it never reads request bodies. The hook NVIDIA built for
+content is [supervisor middleware (RFC 0009)](https://github.com/NVIDIA/OpenShell/tree/main/rfc/0009-supervisor-middleware):
+a gRPC service the sandbox supervisor consults after policy allows a request and before it injects credentials. Today the
+only built-in is a demo regex for `sk-` keys. `piiguard middleware` fills that slot with the same guard the proxy uses,
+and the agent no longer needs a proxy URL at all: it calls Crusoe and You.com directly and the supervisor pauses each
+request on the way out.
+
+```
+agent ──► sandbox supervisor ──► EvaluateHttpRequest  ──► piiguard: redact body → tokens, park mapping by request_id
+                │                                            ▲
+                ├── network policy (host/path) ok?           │  HttpResponsePreReturn.Evaluate: restore tokens → values
+                ▼                                            │
+          Crusoe / You.com  ─────────── response ────────────┘
+```
+
+```bash
+uv pip install -e ".[middleware]"                                   # grpcio, protobuf, pyjwt
+piiguard middleware --host 0.0.0.0 --port 50051 --allow-insecure --llm   # 1. start the service
+cat nemoclaw/middleware/gateway.toml >> <gateway config>.toml            # 2. register it, restart the gateway
+openshell policy set --sandbox <name> --file nemoclaw/middleware/piiguard-middleware.yaml   # 3. attach it
+```
+
+The policy entry is four lines: `middleware: piiguard`, `endpoints.include: [api.inference.crusoecloud.com, api.you.com]`,
+`on_error: fail_closed`, and a `config` with `mode: redact|deny` and `restore: true`. What the service implements:
+
+| RPC | What piiguard does |
+| --- | --- |
+| `Describe` | Negotiates protocol 1.0, declares `HTTP_REQUEST/PRE_CREDENTIALS` and `HTTP_RESPONSE/PRE_RETURN`, 1 MiB payloads |
+| `ValidateConfig` | Rejects unknown keys and bad values before the gateway accepts the policy |
+| `EvaluateHttpRequest` | Walks JSON bodies (messages, tool args, tool results) or plain text, returns the redacted body, audit-safe findings per PII type (names and counts, never values), and `accept-encoding: identity` so the reply is inspectable |
+| `HttpResponsePreReturn.Evaluate` | Looks the request up by `request_id`, restores tokens in the whole body or per streamed unit, skips with a logged finding when the body cannot be inspected |
+
+Failure behaviour follows the platform: `on_error: fail_closed` means a down middleware blocks traffic instead of leaking
+it; a body that is not UTF-8 is denied unless `on_binary: allow`. With `--gateway-id` and `--jwt-key` the service verifies
+the Ed25519 `openshell-ext+jwt` token OpenShell attaches to every call (issuer, exact audience, `typ`, `caller_kind`);
+without them it must be registered with `allow_insecure_transport = true`.
+
+Honest caveats: the contract is a research preview and NVIDIA says it will change (`scripts/gen_proto.sh --refresh`
+regenerates the stubs); NemoClaw does not expose `network_middlewares` or gateway registration yet, so this path is
+applied through the OpenShell CLI; and it is verified against the published proto and a live in-process gRPC server
+(`tests/test_middleware.py`), not yet against a running gateway. Set the registration `timeout` to `10s` when `--llm`
+is on; the default 500 ms is enough for rules only.
+
 ## Layout
 
 ```
@@ -268,7 +329,9 @@ piiguard/eval/                       harness, scoring, hard-negative clean set
 piiguard/coach/                      retrospective (coach prompt + parsing), gate (decide, git)
 piiguard/loop.py                     one generation: eval -> coach -> stage -> gate -> commit/revert
 piiguard/proxy.py                    FastAPI guard proxy: /v1/chat/completions, /you/search, /events
+piiguard/middleware/                 OpenShell supervisor middleware (gRPC): service, server, vendored proto + stubs
 nemoclaw/                            onboard script + egress policy presets (leaky vs guarded)
+nemoclaw/middleware/                 gateway.toml registration + network_middlewares policy for the plugin path
 scripts/demo_leak.py                 the hook
 runs/                                history.jsonl, report.json, proxy-events.jsonl
 ```
