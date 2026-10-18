@@ -180,7 +180,8 @@ things in the loop:
 Replaying today's 15 coach proposals against a ledger built from the rules that preceded each one
 (`scripts/replay_memory.py`): 4 proposals dropped at least one remembered shape, and one of them, generation 14, was
 **accepted** by the validation-only gate while silently losing a percent-encoded phone shape the generation-3 rules had
-caught. The current rules still miss that shape. With the memory gate on, generation 14 would have been sent back.
+caught. Generations 14 through 21 shipped without it until the coach rediscovered it in generation 22, eight
+generations later. With the memory gate on, generation 14 would have been sent back with the shape named.
 
 <!-- memory:start -->
 <!-- memory:end -->
