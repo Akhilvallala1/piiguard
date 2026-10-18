@@ -164,6 +164,27 @@ claim file inside an insurer. `piiguard gen-attacks --domain insurance` builds a
 Presidio on the same prompts catches the phone and the name and walks past the badge and the claim. The demo page
 has an "Insurance claim" preset that shows all four panes on it.
 
+### Shape memory: the guard remembers every shape it ever caught
+
+A 30-attack validation sample cannot see every regression. `piiguard/memory.py` keeps a ledger of every identifier
+surface form the rules have caught, with the rule and the generation that caught it (`runs/shapes.jsonl`). It does two
+things in the loop:
+
+- **Regression gate.** A proposed rule set must still catch every remembered shape, or it is rejected even if the
+  validation score improved.
+- **Precedents for the coach.** When a new shape leaks, the coach is shown the nearest remembered shapes and the rules
+  that solved them. Similarity is by shape signature (digits → 9, letters → A, separators kept) with character
+  trigrams: `ADJ-48213-TX` is near `ADJ-50977-CA` because of its shape, not its meaning. No embedding model is needed
+  for identifiers; embeddings belong to the semantic layer, where the classifier lives.
+
+Replaying today's 15 coach proposals against a ledger built from the rules that preceded each one
+(`scripts/replay_memory.py`): 4 proposals dropped at least one remembered shape, and one of them, generation 14, was
+**accepted** by the validation-only gate while silently losing a percent-encoded phone shape the generation-3 rules had
+caught. The current rules still miss that shape. With the memory gate on, generation 14 would have been sent back.
+
+<!-- memory:start -->
+<!-- memory:end -->
+
 ### Unlearning, with a tripwire
 
 `piiguard prune --gen N` is the forgetting half of the loop: it removes each rule in turn and keeps the removal
