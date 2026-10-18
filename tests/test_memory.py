@@ -42,3 +42,24 @@ def test_ledger_persists_across_instances(tmp_path):
     p = tmp_path / "shapes.jsonl"
     ShapeLedger(p).record(Guard.from_texts(RULES_A), ATTACKS, gen=1)
     assert len(ShapeLedger(p).entries) == 2
+
+
+def test_long_text_shapes_are_still_checked_and_a_broken_entry_counts_as_regression(tmp_path):
+    led = ShapeLedger(tmp_path / "s.jsonl")
+    long_attack = {"id": "L", "technique": "plain", "pii_type": "ssn", "text": ("filler words " * 40) + "ssn 912-34-5678", "surface_forms": ["912-34-5678"]}
+    assert led.record(Guard.from_texts(RULES_A), [long_attack], gen=1) == 1
+    assert led.regressions(Guard.from_texts(RULES_A)) == []            # the full text is stored, so it is checked
+    led.entries.append({"surface": "ADJ-99999-ZZ", "signature": "AAA-99999-AA", "rule": "badge", "gen": 1, "text": "text that lacks the surface"})
+    assert any(e["surface"] == "ADJ-99999-ZZ" for e in led.regressions(Guard.from_texts(RULES_A)))   # cannot verify -> regression
+
+
+def test_timeout_findings_never_count_as_a_catch(tmp_path):
+    from piiguard.pii.rules import Rule
+    class Hang:
+        pattern = "x"
+        def finditer(self, text, timeout=None): raise TimeoutError()
+    g = Guard.from_texts(RULES_A); g.rules.rules.insert(0, Rule(name="hang", pattern="x", regex=Hang()))
+    led = ShapeLedger(tmp_path / "s.jsonl")
+    assert led.record(g, ATTACKS, gen=1) == 0                          # a scan that times out attributes nothing
+    led2 = ShapeLedger(tmp_path / "s2.jsonl"); led2.record(Guard.from_texts(RULES_A), ATTACKS, gen=1)
+    assert len(led2.regressions(g)) == len(led2.entries)              # a candidate that times out regresses everything

@@ -51,14 +51,14 @@ class ShapeLedger:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("a") as f:
             for a in attacks:
-                findings = guard.scan(a["text"], use_classifier=False)
+                findings = [fi for fi in guard.scan(a["text"], use_classifier=False) if fi.source != "timeout"]
                 for sf in a["surface_forms"]:
                     if sf in known:
                         continue
                     hit = next((fi for fi in findings if a["text"][fi.start:fi.end] == sf or sf in a["text"][fi.start:fi.end]), None)
                     if hit is None:
                         continue
-                    e = {"surface": sf, "signature": signature(sf), "pii_type": a.get("pii_type"), "technique": a.get("technique"), "rule": hit.type, "gen": gen, "text": a["text"][:200]}
+                    e = {"surface": sf, "signature": signature(sf), "pii_type": a.get("pii_type"), "technique": a.get("technique"), "rule": hit.type, "gen": gen, "text": a["text"]}
                     f.write(json.dumps(e) + "\n")
                     self.entries.append(e)
                     known.add(sf)
@@ -68,10 +68,15 @@ class ShapeLedger:
     def regressions(self, candidate: Guard) -> list[dict]:
         """Remembered shapes the candidate rules would no longer catch."""
         lost = []
+        plain = Guard(candidate.rules, candidate.prompt, None)
         for e in self.entries:
-            red = Guard(candidate.rules, candidate.prompt, None).redact(e["text"])
-            if e["surface"] in red.text:
-                lost.append(e)
+            if e["surface"] not in e.get("text", ""):
+                lost.append(e)          # cannot be verified: fail closed
+                continue
+            red = plain.redact(e["text"])
+            timed_out = any(f.source == "timeout" for f in red.findings)
+            if timed_out or e["surface"] in red.text:
+                lost.append(e)          # a timeout is not a catch
         return lost
 
     def precedents(self, surface: str, k: int = 5) -> list[dict]:
