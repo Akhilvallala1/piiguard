@@ -22,7 +22,7 @@ def _scores(guard: Guard, attacks: list[dict], clean: list[str]) -> tuple[dict, 
 
 def run_generation(root: str | Path, gen: int, train: list[dict], val: list[dict], clean: list[str], coach_fn: CoachFn,
                    classifier: Optional[Classifier] = None, min_leak_delta: float = 0.05, max_fp_increase: float = 0.05,
-                   log: Callable[[str], None] = lambda s: None) -> dict:
+                   log: Callable[[str], None] = lambda s: None, ledger=None, max_regressions: int = 0) -> dict:
     root = Path(root)
     repo = GuardRepo(root)
     t0 = time.time()
@@ -35,6 +35,9 @@ def run_generation(root: str | Path, gen: int, train: list[dict], val: list[dict
     log(f"[gen {gen}] train leak {train_scores['leak_rate']:.2f} | val leak {val_before['leak_rate']:.2f} | fp {clean_before['fp_rate']:.2f} | {len(misses)} misses -> coach")
 
     rules_yaml, prompt_md = repo.current_files()
+    if ledger is not None:
+        train_scores = {**train_scores, "precedents": {m["id"]: [{"surface": p["surface"], "rule": p["rule"], "gen": p["gen"], "score": p["score"]}
+                                                                   for p in ledger.precedents(m["surface_forms"][0], k=3) if p["score"] >= 0.35] for m in misses[:25]}}
     try:
         proposal = coach_fn(misses, rules_yaml, prompt_md, train_scores)
     except Exception as e:  # noqa: BLE001 - a bad coach turn is a rejected generation, not a crash
@@ -55,9 +58,15 @@ def run_generation(root: str | Path, gen: int, train: list[dict], val: list[dict
     decision = decide({"leak_rate": val_before["leak_rate"], "fp_rate": clean_before["fp_rate"]},
                       {"leak_rate": val_after["leak_rate"], "fp_rate": clean_after["fp_rate"]},
                       min_leak_delta, max_fp_increase)
+    regressions = [e["surface"] for e in ledger.regressions(candidate)] if ledger is not None else []
+    if decision.accepted and len(regressions) > max_regressions:
+        from .coach.gate import Decision
+        decision = Decision(False, f"rejected: would regress {len(regressions)} remembered shape(s), e.g. {regressions[:3]}", decision.leak_delta, decision.fp_delta)
     sha = None
     if decision.accepted:
         sha = repo.commit(f"gen-{gen}", f"gen {gen}: {proposal.rationale}\n\nval leak {val_before['leak_rate']:.2f} -> {val_after['leak_rate']:.2f}, fp {clean_before['fp_rate']:.2f} -> {clean_after['fp_rate']:.2f}")
+        if ledger is not None:
+            ledger.record(candidate, train + val, gen)
     else:
         repo.revert()
     log(f"[gen {gen}] {decision.reason}" + (f" (commit {sha})" if sha else ""))
@@ -66,7 +75,7 @@ def run_generation(root: str | Path, gen: int, train: list[dict], val: list[dict
         "gen": gen, "accepted": decision.accepted, "reason": decision.reason, "commit": sha,
         "rationale": proposal.rationale, "n_misses": len(misses),
         "train_before": train_scores, "val_before": val_before, "val_after": val_after,
-        "fp_before": clean_before, "fp_after": clean_after, "fp_examples": fp_examples,
+        "fp_before": clean_before, "fp_after": clean_after, "fp_examples": fp_examples, "regressions": regressions,
         "proposal": {"rules_yaml": proposal.rules_yaml, "prompt_md": proposal.prompt_md},
         "seconds": round(time.time() - t0, 1), "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }

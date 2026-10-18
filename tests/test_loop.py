@@ -82,3 +82,21 @@ def test_accepted_rules_carry_the_generation_number_as_version(tmp_path):
     run_generation(root, gen=7, train=ATTACKS, val=ATTACKS, clean=CLEAN, coach_fn=lambda m, r, p, s: _proposal(BETTER_RULES))
     from piiguard.pii.rules import load_rules
     assert load_rules(root / "guard" / "rules.yaml").version == 7
+
+
+def test_gate_rejects_candidate_that_regresses_a_remembered_shape_even_if_val_improves(tmp_path):
+    from piiguard.memory import ShapeLedger
+    root = _repo(tmp_path)
+    # remembered: a badge shape caught by an earlier generation
+    ledger = ShapeLedger(root / "runs" / "shapes.jsonl")
+    badge_rules = GEN0_RULES + "  - name: badge\n    pattern: '\\bADJ-\\d{5}-[A-Z]{2}\\b'\n"
+    ledger.record(RuleSetGuard(badge_rules), [{"id": "z", "technique": "plain", "pii_type": "adjuster_badge", "text": "badge ADJ-48213-TX", "surface_forms": ["ADJ-48213-TX"]}], gen=0)
+    # candidate improves val (adds base64) but silently drops the badge rule
+    rec = run_generation(root, gen=1, train=ATTACKS, val=ATTACKS, clean=CLEAN, coach_fn=lambda m, r, p, s: _proposal(BETTER_RULES), ledger=ledger)
+    assert rec["accepted"] is False and "regress" in rec["reason"]
+    assert rec["regressions"] == ["ADJ-48213-TX"]
+
+
+def RuleSetGuard(rules_yaml):
+    from piiguard.pii.guard import Guard
+    return Guard.from_texts(rules_yaml)

@@ -102,11 +102,20 @@ def cmd_improve(a):
     def coach(misses, r, p, s):
         history = [json.loads(l) for l in hist_path.read_text().splitlines() if l.strip()] if hist_path.exists() else []
         return propose(misses, r, p, s, classifier_enabled=a.llm, history=history)
+    from .memory import ShapeLedger
+    ledger = None
+    if not a.no_memory:
+        ledger = ShapeLedger(ROOT / "runs" / "shapes.jsonl")
+        if not ledger.entries:
+            seeded = ledger.record(Guard.from_dir(ROOT / "guard"), sets["train"] + sets["val"], gen=a.start_gen - 1)
+            log(f"[memory] seeded shape ledger with {seeded} shapes the current rules already catch")
+        else:
+            log(f"[memory] shape ledger has {len(ledger.entries)} remembered shapes")
     start = a.start_gen
     records = []
     for gen in range(start, start + a.generations):
         rec = run_generation(ROOT, gen, sets["train"], sets["val"], CLEAN_SAMPLES, coach, classifier=clf,
-                             min_leak_delta=a.min_delta, max_fp_increase=a.max_fp, log=log)
+                             min_leak_delta=a.min_delta, max_fp_increase=a.max_fp, log=log, ledger=ledger)
         records.append(rec)
         if rec["train_before"]["leak_rate"] == 0.0:
             log("no misses left on train; stopping early")
@@ -234,7 +243,7 @@ def main(argv=None):
 
     s = sub.add_parser("eval", help="evaluate current guard"); s.add_argument("--data", default=str(DATA)); s.add_argument("--set", default="heldout", choices=["train", "val", "heldout"]); s.add_argument("--llm", action="store_true"); s.add_argument("--json", action="store_true"); s.add_argument("--show-misses", action="store_true"); s.set_defaults(fn=cmd_eval)
 
-    s = sub.add_parser("improve", help="run N self-improvement generations"); s.add_argument("--generations", type=int, default=5); s.add_argument("--start-gen", type=int, default=1); s.add_argument("--baseline-tag", default="gen-0"); s.add_argument("--data", default=str(DATA)); s.add_argument("--llm", action="store_true"); s.add_argument("--min-delta", type=float, default=0.05); s.add_argument("--max-fp", type=float, default=0.05); s.set_defaults(fn=cmd_improve)
+    s = sub.add_parser("improve", help="run N self-improvement generations"); s.add_argument("--generations", type=int, default=5); s.add_argument("--start-gen", type=int, default=1); s.add_argument("--baseline-tag", default="gen-0"); s.add_argument("--no-memory", action="store_true", help="disable the shape ledger (regression gate + coach precedents)"); s.add_argument("--data", default=str(DATA)); s.add_argument("--llm", action="store_true"); s.add_argument("--min-delta", type=float, default=0.05); s.add_argument("--max-fp", type=float, default=0.05); s.set_defaults(fn=cmd_improve)
 
     s = sub.add_parser("bench", help="compare systems on the same held-out data (Presidio, gen-0, current, +LLM)"); s.add_argument("--data", default=str(DATA)); s.add_argument("--set", default="heldout", choices=["train", "val", "heldout"]); s.add_argument("--baseline-tag", default="gen-0"); s.add_argument("--llm", action="store_true"); s.add_argument("--no-presidio", action="store_true"); s.add_argument("--by-technique", action="store_true"); s.set_defaults(fn=cmd_bench)
 

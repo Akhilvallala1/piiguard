@@ -134,8 +134,13 @@ def build_messages(misses: list[dict], rules_yaml: str, prompt_md: str, scores: 
         lines.append("Leak rate by technique: " + ", ".join(f"{t}={v:.2f}" for t, v in by_t.items()))
     lines.append("")
     lines.append(f"LEAKED ATTACKS ({min(len(misses), max_examples)} of {len(misses)} shown). The surface form is the exact substring that must be caught:")
+    precedents = scores.get("precedents") or {}
     for m in misses[:max_examples]:
         lines.append(f"- id={m['id']} technique={m.get('technique')} pii_type={m.get('pii_type')} surface_forms={m.get('surface_forms')}\n  text: {m['text']!r}")
+        for p in precedents.get(m["id"], []):
+            lines.append(f"    precedent: shape like {p['surface']!r} was solved by rule {p['rule']!r} in gen {p['gen']} (similarity {p['score']})")
+    if precedents:
+        lines.append("Precedents show which existing rule or validator pattern solved a similar shape before. Extend that approach; never drop a rule that catches a remembered shape.")
     lines.append("")
     lines.append("CURRENT rules.yaml:\n```yaml\n" + rules_yaml.rstrip() + "\n```")
     lines.append("CURRENT prompt.md:\n```\n" + prompt_md.rstrip() + "\n```")
