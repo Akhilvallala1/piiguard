@@ -57,15 +57,28 @@ def main():
     g0 = Guard.from_texts(*repo.files_at("gen-0"))
     gn = Guard.from_dir(ROOT / "guard")
     from piiguard.cli import _classifier
-    gclf = Guard.from_dir(ROOT / "guard", _classifier(True))
     pres = presidio_redactor()
+    g_pres = Guard.from_dir(ROOT / "guard", _classifier(False, "presidio"))
+    g_gli = Guard.from_dir(ROOT / "guard", _classifier(False, "gliner"))
+    g_glib = Guard.from_dir(ROOT / "guard", _classifier(False, "gliner-broad"))
     systems = {
         "Microsoft Presidio (default)": lambda rec: pres(rec["text"]),
         "piiguard gen-0 rules": lambda rec: g0.redact(rec["text"]).text,
         "piiguard current rules": lambda rec: gn.redact(rec["text"]).text,
         "piiguard current rules + matching industry pack": lambda rec: domain_guard(gn, pack_for(rec["domain"])).redact(rec["text"]).text,
-        "piiguard rules + industry pack + Nemotron classifier (routed)": lambda rec: domain_guard(gclf, pack_for(rec["domain"])).redact(rec["text"]).text,
+        "piiguard rules + pack + local Presidio detector": lambda rec: domain_guard(g_pres, pack_for(rec["domain"])).redact(rec["text"]).text,
+        "piiguard rules + pack + local GLiNER-PII (precise)": lambda rec: domain_guard(g_gli, pack_for(rec["domain"])).redact(rec["text"]).text,
+        "piiguard rules + pack + local GLiNER-PII (broad)": lambda rec: domain_guard(g_glib, pack_for(rec["domain"])).redact(rec["text"]).text,
     }
+    remote_name = "piiguard rules + industry pack + Nemotron classifier (routed)"
+    if os.environ.get("CRUSOE_API_KEY"):
+        gclf = Guard.from_dir(ROOT / "guard", _classifier(True))
+        systems[remote_name] = lambda rec: domain_guard(gclf, pack_for(rec["domain"])).redact(rec["text"]).text
+    prev_path = ROOT / "runs" / "external-nemotron-pii.json"
+    prev = json.loads(prev_path.read_text()).get("systems", {}) if prev_path.exists() else {}
+    if os.environ.get("EXT_ONLY"):  # comma-separated substrings: run only matching systems, keep the rest from the last run
+        keep = [s.strip() for s in os.environ["EXT_ONLY"].split(",")]
+        systems = {k: v for k, v in systems.items() if any(s in k for s in keep)}
     out = {"n_records": len(records), "n_entities": sum(len(x["spans"]) for x in records), "domains": dict(Counter(x["domain"] for x in records)), "systems": {}}
     for name, fn in systems.items():
         t0 = time.time()
@@ -95,6 +108,9 @@ def main():
             "leak_rate_by_domain": {d: round(a / b, 3) for d, (a, b) in sorted(by_domain_leak.items())},
         }
         print(f"{name:<62} recall {recall:6.1%}  hard-id recall {hard_recall:6.1%}  record leak {leaked_records/len(records):6.1%}  {out['systems'][name]['ms_per_text']:>7} ms/text", file=sys.stderr)
+    for name, v in prev.items():  # systems not re-run this time (no API key, or EXT_ONLY) keep their last measured row
+        if name not in out["systems"]:
+            out["systems"][name] = {**v, "carried_over": True}
     (ROOT / "runs").mkdir(exist_ok=True)
     (ROOT / "runs" / "external-nemotron-pii.json").write_text(json.dumps(out, indent=2))
     print(json.dumps({k: {"entity_recall": v["entity_recall"], "record_leak_rate": v["record_leak_rate"]} for k, v in out["systems"].items()}, indent=2))

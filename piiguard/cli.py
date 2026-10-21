@@ -11,12 +11,22 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data" / "attacks"
 
 
-def _classifier(use_llm: bool):
-    if not use_llm:
-        return None
-    from .crusoe import COACH_MODEL, FALLBACK_MODEL, WORKER_MODEL
-    from .pii.router import RoutedClassifier
-    return RoutedClassifier(small_models=[WORKER_MODEL, FALLBACK_MODEL], large_models=[COACH_MODEL, WORKER_MODEL])
+def _classifier(use_llm: bool, detector: str = "none"):
+    """Local detector (presidio | gliner | none) first, then the optional remote LLM router behind it."""
+    from .pii.local import Stacked, make_detector
+    local = make_detector(detector)
+    remote = None
+    if use_llm:
+        from .crusoe import COACH_MODEL, FALLBACK_MODEL, WORKER_MODEL
+        from .pii.router import RoutedClassifier
+        remote = RoutedClassifier(small_models=[WORKER_MODEL, FALLBACK_MODEL], large_models=[COACH_MODEL, WORKER_MODEL])
+    if local is None:
+        return remote
+    return local if remote is None else Stacked(local, remote)
+
+
+def _clf(a):
+    return _classifier(getattr(a, "llm", False), getattr(a, "detector", "none"))
 
 
 def _load_sets(data: Path):
@@ -31,7 +41,7 @@ def cmd_models(_):
 
 def cmd_redact(a):
     from .pii.guard import Guard
-    g = Guard.from_dir(ROOT / "guard", _classifier(a.llm))
+    g = Guard.from_dir(ROOT / "guard", _clf(a))
     red = g.redact(a.text)
     print(red.text)
     if a.verbose:
@@ -62,7 +72,7 @@ def cmd_eval(a):
     from .eval.harness import CLEAN_SAMPLES, evaluate_attacks, evaluate_clean
     from .pii.guard import Guard
     sets = _load_sets(Path(a.data))
-    g = Guard.from_dir(ROOT / "guard", _classifier(a.llm))
+    g = Guard.from_dir(ROOT / "guard", _clf(a))
     results, scores = evaluate_attacks(g, sets[a.set])
     _, clean = evaluate_clean(g, CLEAN_SAMPLES)
     report = {"set": a.set, "llm": a.llm, "rules_version": g.rules.version, "attacks": scores, "clean": clean}
@@ -84,7 +94,7 @@ def cmd_improve(a):
     from .loop import run_generation
     from .pii.guard import Guard
     sets = _load_sets(Path(a.data))
-    clf = _classifier(a.llm)
+    clf = _clf(a)
     log = lambda s: print(s, file=sys.stderr, flush=True)
 
     if a.start_gen > 1:  # resuming: the true baseline is the gen-0 tag, not whatever is in the working tree now
@@ -148,6 +158,10 @@ def cmd_bench(a):
     systems[f"piiguard {a.baseline_tag} (hand-written rules)"] = lambda t, g=g0: g.redact(t).text
     gn = Guard.from_dir(ROOT / "guard")
     systems[f"piiguard gen-{gn.rules.version} rules (self-improved, no model call)"] = lambda t, g=gn: g.redact(t).text
+    detectors = ["presidio", "gliner", "gliner-broad"] if a.detector == "all" else ([] if a.detector == "none" else [a.detector])
+    for d in detectors:
+        gd = Guard.from_dir(ROOT / "guard", _classifier(False, d))
+        systems[f"piiguard gen-{gn.rules.version} rules + local {d} detector (no remote call)"] = lambda t, g=gd: g.redact(t).text
     if a.llm:
         gl = Guard.from_dir(ROOT / "guard", _classifier(True))
         systems[f"piiguard gen-{gn.rules.version} rules + Nemotron 3.5 Lightning classifier"] = lambda t, g=gl: g.redact(t).text
@@ -224,8 +238,8 @@ def cmd_serve(a):
     cfg = resolve_serve_config(a.host, os.environ.get("GUARD_PROXY_TOKEN"))
     if cfg.generated:
         print(f"GUARD_PROXY_TOKEN not set; using one-off token: {cfg.token}", file=sys.stderr)
-    app = create_app(token=cfg.token, classifier=_classifier(a.llm))
-    print(f"piiguard proxy on http://{cfg.host}:{a.port}  (llm classifier: {'on' if a.llm else 'off'})", file=sys.stderr)
+    app = create_app(token=cfg.token, classifier=_clf(a))
+    print(f"piiguard proxy on http://{cfg.host}:{a.port}  (local detector: {a.detector}, remote llm classifier: {'on' if a.llm else 'off'})", file=sys.stderr)
     uvicorn.run(app, host=cfg.host, port=a.port, log_level="warning")
 
 
@@ -242,7 +256,7 @@ def cmd_middleware(a):
     elif a.host not in ("127.0.0.1", "localhost", "::1") and not a.allow_insecure:
         print(f"refusing to bind {a.host} without --jwt-key; pass --allow-insecure for a trusted local network", file=sys.stderr)
         raise SystemExit(2)
-    guard = Guard.from_dir(ROOT / "guard", _classifier(a.llm))
+    guard = Guard.from_dir(ROOT / "guard", _clf(a))
     serve(guard, a.host, a.port, tls_cert=a.tls_cert, tls_key=a.tls_key, auth=auth, name=a.name, max_payload_bytes=a.max_payload_bytes)
 
 
@@ -254,23 +268,23 @@ def main(argv=None):
 
     sub.add_parser("models", help="list Crusoe model ids").set_defaults(fn=cmd_models)
 
-    s = sub.add_parser("redact", help="redact a string with the current guard"); s.add_argument("text"); s.add_argument("--llm", action="store_true"); s.add_argument("-v", "--verbose", action="store_true"); s.set_defaults(fn=cmd_redact)
+    s = sub.add_parser("redact", help="redact a string with the current guard"); s.add_argument("text"); s.add_argument("--llm", action="store_true", help="add the remote Nemotron classifier (sends text to Crusoe)"); s.add_argument("--detector", default="none", choices=["none", "presidio", "gliner", "gliner-broad"], help="local base detector; runs on this host"); s.add_argument("-v", "--verbose", action="store_true"); s.set_defaults(fn=cmd_redact)
 
     s = sub.add_parser("gen-attacks", help="generate red-team attack sets"); s.add_argument("--n", type=int, default=150); s.add_argument("--seed", type=int, default=42); s.add_argument("--out", default=str(DATA)); s.add_argument("--llm-carriers", action="store_true"); s.add_argument("--domain", default=None, help="industry pack, e.g. insurance"); s.set_defaults(fn=cmd_gen)
 
-    s = sub.add_parser("eval", help="evaluate current guard"); s.add_argument("--data", default=str(DATA)); s.add_argument("--set", default="heldout", choices=["train", "val", "heldout"]); s.add_argument("--llm", action="store_true"); s.add_argument("--json", action="store_true"); s.add_argument("--show-misses", action="store_true"); s.set_defaults(fn=cmd_eval)
+    s = sub.add_parser("eval", help="evaluate current guard"); s.add_argument("--data", default=str(DATA)); s.add_argument("--set", default="heldout", choices=["train", "val", "heldout"]); s.add_argument("--llm", action="store_true", help="add the remote Nemotron classifier (sends text to Crusoe)"); s.add_argument("--detector", default="none", choices=["none", "presidio", "gliner", "gliner-broad"], help="local base detector; runs on this host"); s.add_argument("--json", action="store_true"); s.add_argument("--show-misses", action="store_true"); s.set_defaults(fn=cmd_eval)
 
-    s = sub.add_parser("improve", help="run N self-improvement generations"); s.add_argument("--generations", type=int, default=5); s.add_argument("--start-gen", type=int, default=1); s.add_argument("--baseline-tag", default="gen-0"); s.add_argument("--no-memory", action="store_true", help="disable the shape ledger (regression gate + coach precedents)"); s.add_argument("--data", default=str(DATA)); s.add_argument("--llm", action="store_true"); s.add_argument("--min-delta", type=float, default=0.05); s.add_argument("--max-fp", type=float, default=0.05); s.set_defaults(fn=cmd_improve)
+    s = sub.add_parser("improve", help="run N self-improvement generations"); s.add_argument("--generations", type=int, default=5); s.add_argument("--start-gen", type=int, default=1); s.add_argument("--baseline-tag", default="gen-0"); s.add_argument("--no-memory", action="store_true", help="disable the shape ledger (regression gate + coach precedents)"); s.add_argument("--data", default=str(DATA)); s.add_argument("--llm", action="store_true", help="add the remote Nemotron classifier (sends text to Crusoe)"); s.add_argument("--detector", default="none", choices=["none", "presidio", "gliner", "gliner-broad"], help="local base detector; runs on this host"); s.add_argument("--min-delta", type=float, default=0.05); s.add_argument("--max-fp", type=float, default=0.05); s.set_defaults(fn=cmd_improve)
 
-    s = sub.add_parser("bench", help="compare systems on the same held-out data (Presidio, gen-0, current, +LLM)"); s.add_argument("--data", default=str(DATA)); s.add_argument("--set", default="heldout", choices=["train", "val", "heldout"]); s.add_argument("--baseline-tag", default="gen-0"); s.add_argument("--llm", action="store_true"); s.add_argument("--no-presidio", action="store_true"); s.add_argument("--by-technique", action="store_true"); s.set_defaults(fn=cmd_bench)
+    s = sub.add_parser("bench", help="compare systems on the same held-out data (Presidio, gen-0, current, +LLM)"); s.add_argument("--data", default=str(DATA)); s.add_argument("--set", default="heldout", choices=["train", "val", "heldout"]); s.add_argument("--baseline-tag", default="gen-0"); s.add_argument("--llm", action="store_true", help="add the remote Nemotron classifier (sends text to Crusoe)"); s.add_argument("--detector", default="none", choices=["none", "presidio", "gliner", "gliner-broad", "all"], help="add rows for local base detectors on top of the current rules"); s.add_argument("--no-presidio", action="store_true"); s.add_argument("--by-technique", action="store_true"); s.set_defaults(fn=cmd_bench)
 
     s = sub.add_parser("prune", help="unlearning: drop rules whose removal changes no score; commit as a generation"); s.add_argument("--data", default=str(DATA)); s.add_argument("--gen", type=int, required=True); s.add_argument("--dry-run", action="store_true"); s.set_defaults(fn=cmd_prune)
 
     s = sub.add_parser("report", help="print generation history and held-out before/after"); s.add_argument("--markdown", action="store_true"); s.set_defaults(fn=cmd_report)
 
-    s = sub.add_parser("serve", help="run the guard proxy"); s.add_argument("--host", default="127.0.0.1", help="use 0.0.0.0 (with GUARD_PROXY_TOKEN set) so a NemoClaw sandbox can reach it"); s.add_argument("--port", type=int, default=8787); s.add_argument("--llm", action="store_true"); s.set_defaults(fn=cmd_serve)
+    s = sub.add_parser("serve", help="run the guard proxy"); s.add_argument("--host", default="127.0.0.1", help="use 0.0.0.0 (with GUARD_PROXY_TOKEN set) so a NemoClaw sandbox can reach it"); s.add_argument("--port", type=int, default=8787); s.add_argument("--llm", action="store_true", help="add the remote Nemotron classifier (sends text to Crusoe)"); s.add_argument("--detector", default="none", choices=["none", "presidio", "gliner", "gliner-broad"], help="local base detector; runs on this host"); s.set_defaults(fn=cmd_serve)
 
-    s = sub.add_parser("middleware", help="run the guard as an OpenShell supervisor middleware (gRPC, RFC 0009)"); s.add_argument("--host", default="127.0.0.1"); s.add_argument("--port", type=int, default=50051); s.add_argument("--name", default="piiguard", help="registration name used in gateway TOML and policy"); s.add_argument("--llm", action="store_true"); s.add_argument("--max-payload-bytes", type=int, default=1 << 20); s.add_argument("--gateway-id", default=None); s.add_argument("--audience", default=None, help="defaults to urn:openshell:extension:middleware:<name>"); s.add_argument("--jwt-key", default=None, help="gateway signing public key (PEM) or JWKS JSON file"); s.add_argument("--tls-cert", default=None); s.add_argument("--tls-key", default=None); s.add_argument("--allow-insecure", action="store_true", help="bind a non-loopback host with no token check"); s.set_defaults(fn=cmd_middleware)
+    s = sub.add_parser("middleware", help="run the guard as an OpenShell supervisor middleware (gRPC, RFC 0009)"); s.add_argument("--host", default="127.0.0.1"); s.add_argument("--port", type=int, default=50051); s.add_argument("--name", default="piiguard", help="registration name used in gateway TOML and policy"); s.add_argument("--llm", action="store_true", help="add the remote Nemotron classifier (sends text to Crusoe)"); s.add_argument("--detector", default="none", choices=["none", "presidio", "gliner", "gliner-broad"], help="local base detector; runs on this host"); s.add_argument("--max-payload-bytes", type=int, default=1 << 20); s.add_argument("--gateway-id", default=None); s.add_argument("--audience", default=None, help="defaults to urn:openshell:extension:middleware:<name>"); s.add_argument("--jwt-key", default=None, help="gateway signing public key (PEM) or JWKS JSON file"); s.add_argument("--tls-cert", default=None); s.add_argument("--tls-key", default=None); s.add_argument("--allow-insecure", action="store_true", help="bind a non-loopback host with no token check"); s.set_defaults(fn=cmd_middleware)
 
     a = p.parse_args(argv)
     a.fn(a)

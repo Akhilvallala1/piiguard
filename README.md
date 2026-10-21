@@ -9,15 +9,19 @@ is a reviewed git diff of plain YAML, accepted only if it lowers leaks on data t
 
 **At a glance (honest version):**
 
-- **Where it wins:** structured identifiers. On NVIDIA's public Nemotron-PII test split, rules + classifier catch
-  92.8% of structured identifier spans vs 68.5% for Microsoft Presidio's defaults.
-- **Where it does not:** semantic PII (names, places, companies). On all Nemotron-PII labels Presidio leads
-  (65.9% vs 58.3% entity recall). Names are caught only with the classifier on.
+- **Where it wins:** structured identifiers. On NVIDIA's public Nemotron-PII test split, the learned rules plus a
+  local GLiNER-PII detector catch 91.0% of structured identifier spans vs 68.5% for Microsoft Presidio's defaults,
+  with no text leaving the host (the remote Nemotron classifier reaches 92.8%).
+- **Where it does not:** semantic PII (names, places, companies). On all Nemotron-PII labels Presidio still leads
+  (65.9% vs 63.0% entity recall for the best local configuration).
 - **Learning is offline and gated, by design.** Nothing learns from live traffic; a batch loop proposes rule
   changes, a gate accepts or rejects them, and accepted changes are tagged commits you can review and roll back.
 - **Sample sizes are small.** Adversarial held-out sets are 20-30 attacks from our own generator, so treat those
   leak rates as directional. Larger, externally generated evaluations are on the [roadmap](#roadmap).
-- **The classifier is a remote model call** (Nemotron on Crusoe). A local detector option is on the roadmap.
+- **Local first.** `--detector gliner` (or `presidio`) adds a base detector that runs on this host. The remote
+  Nemotron classifier (`--llm`) is optional and is the only path that sends text off the machine.
+- **The tradeoff is real.** `gliner-broad` gets the structured-id recall above but flags 24% of clean samples;
+  the default `gliner` preset flags 4% and leaves structured ids to the learned rules.
 
 Origin: built at the Recursive Agents Hackathon (San Francisco, 2026-10-17) and developed since.
 
@@ -89,12 +93,19 @@ All numbers below are produced by the code in this repo during the event and inj
 | system | held-out leak rate | false positives | ms/text |
 |---|---|---|---|
 | NemoClaw sandbox policy only (no content layer) | 100.0% (30/30) | 0.0% | 0 |
-| Microsoft Presidio (default recognizers) | 53.3% (16/30) | 64.0% | 5 |
-| Microsoft Presidio (scoped: SSN, email, phone, card) | 70.0% (21/30) | 4.0% | 3 |
+| Microsoft Presidio (default recognizers) | 53.3% (16/30) | 64.0% | 6 |
+| Microsoft Presidio (scoped: SSN, email, phone, card) | 70.0% (21/30) | 4.0% | 4 |
 | piiguard gen-0 (hand-written rules) | 76.7% (23/30) | 0.0% | 0 |
-| piiguard gen-14 rules (self-improved, no model call) | 16.7% (5/30) | 0.0% | 1 |
-| piiguard gen-14 rules + Nemotron 3.5 Lightning classifier | 0.0% (0/30) | 0.0% | 2899 |
+| piiguard gen-23 rules (self-improved, no model call) | 16.7% (5/30) | 0.0% | 0 |
+| piiguard gen-23 rules + local presidio detector (no remote call) | 13.3% (4/30) | 4.0% | 11 |
+| piiguard gen-23 rules + local gliner detector (no remote call) | 0.0% (0/30) | 4.0% | 254 |
+| piiguard gen-23 rules + local gliner-broad detector (no remote call) | 0.0% (0/30) | 24.0% | 273 |
 <!-- bench:end -->
+
+The remote row (gen-14 rules + Nemotron 3.5 Lightning on Crusoe) was measured on 2026-10-17 at 0.0% leak, 0.0% false
+positives and about 2.9 s per text; run `piiguard bench --llm` to reproduce it. The local GLiNER-PII row reaches the same
+leak rate on this set, about ten times faster, without any text leaving the host. Detector settings were chosen on the
+validation sets, not on held-out; with n=30, one clean sample is 4 points.
 
 Presidio's default recognizers also flag dates, places and names, which is why its false-positive rate on
 clean agent traffic is high; the scoped row limits it to the same entity types piiguard targets. The point
@@ -118,10 +129,13 @@ survives redaction. `scripts/eval_external.py` reproduces it.
 <!-- external:start -->
 | system | all labels, entity recall | structured identifiers, recall | records with any leak | ms/text |
 |---|---|---|---|---|
-| Microsoft Presidio (default) | 65.9% | 68.5% | 88.6% | 16 |
+| Microsoft Presidio (default) | 65.9% | 68.5% | 88.6% | 12 |
 | piiguard gen-0 rules | 12.0% | 43.5% | 100.0% | 0 |
 | piiguard current rules | 15.6% | 43.5% | 100.0% | 4 |
 | piiguard current rules + matching industry pack | 15.6% | 43.5% | 100.0% | 5 |
+| piiguard rules + pack + local Presidio detector | 43.6% | 48.9% | 98.6% | 18 |
+| piiguard rules + pack + local GLiNER-PII (precise) | 47.2% | 45.9% | 97.6% | 187 |
+| piiguard rules + pack + local GLiNER-PII (broad) | 63.0% | 91.0% | 87.6% | 208 |
 | piiguard rules + industry pack + Nemotron classifier (routed) | 58.3% | 92.8% | 84.5% | 554 |
 
 290 records, 2630 labeled spans, 29 domains, locale us, seed 7. Structured identifiers: 597 spans (account_number, api_key, bank_routing_number, certificate_license_number, credit_debit_card, customer_id, cvv, date_of_birth, device_identifier, email, employee_id, license_plate…).
@@ -160,6 +174,8 @@ and the recall on this dataset are different questions; the second one is the on
 | 21 | no | 60% → 85% | 0% → 0% | — | Add plain-text rules for adjuster badge, claim number, and policy number so that hex-, base64-, and reversed-e *(rejected)* |
 | 22 | yes | 60% → 45% | 0% → 0% | 4249442 | Add precise plain-text rules for adjuster badge, claim number, and policy number so that existing base64, hex, |
 | 23 | yes | 45% → 35% | 0% → 0% | c04e6d9 | The largest remaining leak classes are split_lines (0.83) and reversed (0.80), plus rot13 (0.70) which decodes |
+| 24 | no | 35% → 35% | 0% → 0% | — | Add specific rules for ROT13-encoded adjuster badge (NQW-...) and claim number (PYZ-...) to capture the larges *(rejected)* |
+| 25 | no | 35% → 35% | 0% → 0% | — | Add rot13‑specific rules that match encoded adjuster badge, claim number, and policy number only when they app *(rejected)* |
 
 **Held-out attacks (never shown to the coach, n=30): leak rate 76.7% → 16.7%. False positives on clean traffic: 0.0% → 0.0%.**
 <!-- generations:end -->
@@ -277,8 +293,9 @@ The guard is a drop-in replacement for the model URL. The agent does not change.
 
 1. On the machine that holds the keys, fill `.env` and start the proxy:
    ```bash
+   uv pip install -e ".[gliner]"                          # or ".[presidio]"
    export GUARD_PROXY_TOKEN="$(openssl rand -hex 16)"
-   piiguard serve --host 0.0.0.0 --port 8787 --llm
+   piiguard serve --host 0.0.0.0 --port 8787 --detector gliner   # rules + local detector; add --llm for the remote classifier
    ```
 2. Point the agent at it: base URL `http://<host>:8787/v1`, API key = the proxy token. Any OpenAI-compatible client
    works. For a NemoClaw sandbox, run `nemoclaw/onboard.sh` (custom provider pointing at the proxy) and apply
@@ -290,7 +307,7 @@ The guard is a drop-in replacement for the model URL. The agent does not change.
    The product of the loop is `guard/rules.yaml` + `guard/prompt.md` in git: a security reviewer reads a diff, not a model.
 
 Known limits: single host and token auth (a team deployment needs a real identity layer); streaming replies are
-converted, not passed through; names are caught only with the classifier on; the loop has seen a synthetic red
+converted, not passed through; names are caught only with a detector on (`--detector` or `--llm`); the loop has seen a synthetic red
 team, not production traffic.
 
 ### As an OpenShell plugin: supervisor middleware
@@ -377,8 +394,8 @@ runs/                                history.jsonl, report.json, proxy-events.js
 Tracked as [GitHub issues](https://github.com/Akhilvallala1/piiguard/issues). In order:
 
 1. **Trust:** license, CI, packaging, README that matches the code. *(done)*
-2. **Local first:** a local base detector (Presidio or GLiNER-PII) so no raw text leaves the host to be classified;
-   learned rules exported as Presidio recognizers and as a NeMo Guardrails action.
+2. **Local first:** a local base detector (Presidio or GLiNER-PII) so no raw text leaves the host to be classified
+   *(done: `--detector`)*; learned rules exported as Presidio recognizers and as a NeMo Guardrails action.
 3. **Evaluation that holds up:** held-out sets of 300+ with confidence intervals, a red team from a different model
    family than the coach, external attack sets, unseen identifier formats, a larger clean corpus for false positives,
    partial-leak scoring, a statistical gate, and ablations.

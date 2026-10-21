@@ -41,7 +41,7 @@
         "unicode_separators": 0.5,
         "url_param": 0.3333333333333333
       },
-      "ms_per_text": 5.3
+      "ms_per_text": 6.1
     },
     {
       "system": "Microsoft Presidio (scoped: SSN, email, phone, card)",
@@ -62,7 +62,7 @@
         "unicode_separators": 0.5,
         "url_param": 1.0
       },
-      "ms_per_text": 2.9
+      "ms_per_text": 3.5
     },
     {
       "system": "piiguard gen-0 (hand-written rules)",
@@ -83,10 +83,10 @@
         "unicode_separators": 1.0,
         "url_param": 1.0
       },
-      "ms_per_text": 0.1
+      "ms_per_text": 0.0
     },
     {
-      "system": "piiguard gen-14 rules (self-improved, no model call)",
+      "system": "piiguard gen-23 rules (self-improved, no model call)",
       "leak_rate": 0.16666666666666666,
       "leaks": 5,
       "n": 30,
@@ -104,14 +104,35 @@
         "unicode_separators": 1.0,
         "url_param": 0.0
       },
-      "ms_per_text": 0.6
+      "ms_per_text": 0.1
     },
     {
-      "system": "piiguard gen-14 rules + Nemotron 3.5 Lightning classifier",
+      "system": "piiguard gen-23 rules + local presidio detector (no remote call)",
+      "leak_rate": 0.13333333333333333,
+      "leaks": 4,
+      "n": 30,
+      "fp_rate": 0.04,
+      "by_technique": {
+        "base64": 0.0,
+        "fullwidth": 0.0,
+        "no_separators": 0.3333333333333333,
+        "plain": 0.0,
+        "reversed": 1.0,
+        "rot13": 0.0,
+        "spaced_digits": 0.0,
+        "spelled": 0.0,
+        "split_lines": 0.0,
+        "unicode_separators": 1.0,
+        "url_param": 0.0
+      },
+      "ms_per_text": 11.4
+    },
+    {
+      "system": "piiguard gen-23 rules + local gliner detector (no remote call)",
       "leak_rate": 0.0,
       "leaks": 0,
       "n": 30,
-      "fp_rate": 0.0,
+      "fp_rate": 0.04,
       "by_technique": {
         "base64": 0.0,
         "fullwidth": 0.0,
@@ -125,7 +146,28 @@
         "unicode_separators": 0.0,
         "url_param": 0.0
       },
-      "ms_per_text": 2899.0
+      "ms_per_text": 254.2
+    },
+    {
+      "system": "piiguard gen-23 rules + local gliner-broad detector (no remote call)",
+      "leak_rate": 0.0,
+      "leaks": 0,
+      "n": 30,
+      "fp_rate": 0.24,
+      "by_technique": {
+        "base64": 0.0,
+        "fullwidth": 0.0,
+        "no_separators": 0.0,
+        "plain": 0.0,
+        "reversed": 0.0,
+        "rot13": 0.0,
+        "spaced_digits": 0.0,
+        "spelled": 0.0,
+        "split_lines": 0.0,
+        "unicode_separators": 0.0,
+        "url_param": 0.0
+      },
+      "ms_per_text": 272.8
     }
   ]
 }
