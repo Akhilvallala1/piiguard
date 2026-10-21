@@ -47,23 +47,53 @@ def _upstream_error(e: Exception) -> JSONResponse:
     return JSONResponse(status_code=502, content={"error": f"upstream failure: {type(e).__name__}"})
 
 
-class CrusoeUpstream:
+DEFAULT_UPSTREAM_URL = "https://api.inference.crusoecloud.com/v1"
+
+
+def _env_first(*names: str, default: str = "") -> str:
+    for n in names:
+        v = os.environ.get(n)
+        if v:
+            return v
+    return default
+
+
+def upstream_settings(url: Optional[str] = None, key: Optional[str] = None) -> tuple[str, str]:
+    """Resolve the model endpoint. Any OpenAI-compatible server works (OpenAI, vLLM, Ollama, Crusoe, ...).
+
+    Order: explicit argument, PIIGUARD_UPSTREAM_URL / PIIGUARD_UPSTREAM_KEY, then the older CRUSOE_BASE_URL /
+    CRUSOE_API_KEY names, then Crusoe's public endpoint. The Crusoe key is only ever sent to the Crusoe-named URL:
+    pointing the proxy somewhere else must not hand that server your Crusoe credentials."""
+    generic = url or os.environ.get("PIIGUARD_UPSTREAM_URL")
+    if generic:
+        base = generic
+        secret = key if key is not None else os.environ.get("PIIGUARD_UPSTREAM_KEY", "")
+    else:
+        base = os.environ.get("CRUSOE_BASE_URL") or DEFAULT_UPSTREAM_URL
+        secret = key if key is not None else _env_first("PIIGUARD_UPSTREAM_KEY", "CRUSOE_API_KEY")
+    return base.rstrip("/"), secret
+
+
+class OpenAICompatibleUpstream:
     """Real upstreams. Holds the provider keys so the sandboxed agent never does."""
 
-    def __init__(self):
-        self.base = os.environ.get("CRUSOE_BASE_URL", "https://api.inference.crusoecloud.com/v1").rstrip("/")
-        self.key = os.environ.get("CRUSOE_API_KEY", "")
+    def __init__(self, url: Optional[str] = None, key: Optional[str] = None):
+        self.base, self.key = upstream_settings(url, key)
         self.you_url = os.environ.get("YOU_SEARCH_URL", "https://api.you.com/v1/search")
         self.you_key = os.environ.get("YDC_API_KEY", "")
         self.http = httpx.Client(timeout=120)
         self.retries = int(os.environ.get("PIIGUARD_UPSTREAM_RETRIES", "4"))
         self.backoff = 1.0
 
+    def _headers(self) -> dict:
+        # Local servers such as Ollama need no key; send none rather than an empty bearer.
+        return {"Authorization": f"Bearer {self.key}"} if self.key else {}
+
     def chat(self, payload: dict) -> dict:
-        """Crusoe's shared endpoint answers 429/503 under load; retry with backoff so the agent sees a reply, not an error."""
+        """Shared endpoints answer 429/503 under load; retry with backoff so the agent sees a reply, not an error."""
         last: Optional[httpx.Response] = None
         for attempt in range(self.retries + 1):
-            r = self.http.post(f"{self.base}/chat/completions", json=payload, headers={"Authorization": f"Bearer {self.key}"})
+            r = self.http.post(f"{self.base}/chat/completions", json=payload, headers=self._headers())
             if r.status_code not in (429, 503):
                 r.raise_for_status()
                 return r.json()
@@ -75,7 +105,7 @@ class CrusoeUpstream:
         return last.json()
 
     def models(self) -> dict:
-        r = self.http.get(f"{self.base}/models", headers={"Authorization": f"Bearer {self.key}"})
+        r = self.http.get(f"{self.base}/models", headers=self._headers())
         r.raise_for_status()
         return r.json()
 
@@ -83,6 +113,9 @@ class CrusoeUpstream:
         r = self.http.get(self.you_url, params={"query": q, "count": 5}, headers={"X-API-Key": self.you_key})
         r.raise_for_status()
         return r.json()
+
+
+CrusoeUpstream = OpenAICompatibleUpstream  # old name, kept so existing imports keep working
 
 
 # Protocol strings that may pass through untouched. Deny by default: a value is skipped only when its key is
@@ -98,6 +131,12 @@ DEFAULT_MODEL_ALLOWLIST = [
     os.environ.get("COACH_MODEL", "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B"),
     os.environ.get("FALLBACK_MODEL", "deepseek-ai/Deepseek-V4-Flash"),
 ]
+
+
+def model_allowlist_from_env() -> list[str]:
+    """Model ids that may pass unredacted in a `model` field. PIIGUARD_MODEL_ALLOWLIST (comma separated) or the defaults."""
+    ids = [m.strip() for m in _env_first("PIIGUARD_MODEL_ALLOWLIST", "MODEL_ALLOWLIST").split(",") if m.strip()]
+    return ids or list(DEFAULT_MODEL_ALLOWLIST)
 
 
 def _protocol_ok(key: Optional[str], value: str, model_allowlist: set[str]) -> bool:
@@ -190,8 +229,8 @@ def _presidio():
 
 def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[str] = None, classifier: Optional[Classifier] = None,
                model_allowlist: Optional[list[str]] = None) -> FastAPI:
-    upstream = upstream or CrusoeUpstream()
-    allow = set(model_allowlist or [m for m in os.environ.get("MODEL_ALLOWLIST", "").split(",") if m] or DEFAULT_MODEL_ALLOWLIST)
+    upstream = upstream or OpenAICompatibleUpstream()
+    allow = set(model_allowlist or model_allowlist_from_env())
     token = token or os.environ.get("GUARD_PROXY_TOKEN") or secrets.token_urlsafe(24)
     guard_dir = guard_dir or os.path.join(ROOT, "guard")
     app = FastAPI(title="piiguard proxy")

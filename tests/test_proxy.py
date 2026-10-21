@@ -202,3 +202,59 @@ def test_demo_data_sorts_generation_tags_numerically(monkeypatch):
     monkeypatch.setattr(px, "_git_tags", lambda: ["gen-0", "gen-1", "gen-14", "gen-22", "gen-3"])
     client = TestClient(create_app(upstream=FakeUpstream(), token="t"))
     assert client.get("/demo/data", headers={"Authorization": "Bearer t"}).json()["tags"] == ["gen-0", "gen-1", "gen-3", "gen-14", "gen-22"]
+
+
+def _clear_upstream_env(monkeypatch):
+    for n in ("PIIGUARD_UPSTREAM_URL", "PIIGUARD_UPSTREAM_KEY", "CRUSOE_BASE_URL", "CRUSOE_API_KEY"):
+        monkeypatch.delenv(n, raising=False)
+
+
+def test_upstream_prefers_generic_env_names_over_crusoe_ones(monkeypatch):
+    from piiguard.proxy import upstream_settings
+    _clear_upstream_env(monkeypatch)
+    monkeypatch.setenv("CRUSOE_BASE_URL", "https://crusoe.example/v1")
+    monkeypatch.setenv("CRUSOE_API_KEY", "old")
+    assert upstream_settings() == ("https://crusoe.example/v1", "old")
+    monkeypatch.setenv("PIIGUARD_UPSTREAM_URL", "https://api.openai.com/v1/")
+    monkeypatch.setenv("PIIGUARD_UPSTREAM_KEY", "new")
+    assert upstream_settings() == ("https://api.openai.com/v1", "new")
+    assert upstream_settings("http://127.0.0.1:11434/v1", "") == ("http://127.0.0.1:11434/v1", "")
+
+
+def test_crusoe_key_is_never_sent_to_a_different_upstream(monkeypatch):
+    from piiguard.proxy import upstream_settings
+    _clear_upstream_env(monkeypatch)
+    monkeypatch.setenv("CRUSOE_API_KEY", "crusoe-secret")
+    assert upstream_settings("https://api.openai.com/v1") == ("https://api.openai.com/v1", "")
+    monkeypatch.setenv("PIIGUARD_UPSTREAM_URL", "http://127.0.0.1:11434/v1")
+    assert upstream_settings() == ("http://127.0.0.1:11434/v1", "")
+    monkeypatch.delenv("PIIGUARD_UPSTREAM_URL")
+    assert upstream_settings()[1] == "crusoe-secret"           # still used for Crusoe itself
+
+
+def test_upstream_without_key_sends_no_authorization_header(monkeypatch):
+    import httpx
+    from piiguard.proxy import OpenAICompatibleUpstream
+    _clear_upstream_env(monkeypatch)
+    seen = []
+    def handler(request):
+        seen.append((str(request.url), request.headers.get("authorization")))
+        return httpx.Response(200, json={"choices": [{"index": 0, "message": {"role": "assistant", "content": "ok"}}]})
+    up = OpenAICompatibleUpstream(url="http://127.0.0.1:11434/v1")
+    up.http = httpx.Client(transport=httpx.MockTransport(handler), timeout=5)
+    up.chat({"model": "llama3.1:8b", "messages": []})
+    assert seen == [("http://127.0.0.1:11434/v1/chat/completions", None)]
+    up.key = "sk-test"
+    up.chat({"model": "llama3.1:8b", "messages": []})
+    assert seen[-1][1] == "Bearer sk-test"
+
+
+def test_model_allowlist_reads_generic_env_name(monkeypatch):
+    up = FakeUpstream()
+    monkeypatch.setenv("PIIGUARD_MODEL_ALLOWLIST", "gpt-4o-mini, llama3.1:8b")
+    c = TestClient(create_app(upstream=up, token="t"))
+    r = c.post("/v1/chat/completions", headers={"Authorization": "Bearer t"},
+               json={"model": "llama3.1:8b", "messages": [{"role": "user", "content": "SSN 912-34-5678"}]})
+    assert r.status_code == 200
+    assert up.seen[-1]["model"] == "llama3.1:8b"
+    assert "912-34-5678" not in json.dumps(up.seen[-1])

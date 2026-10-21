@@ -481,16 +481,36 @@ pure function behind the classifier interface; NVIDIA NeMo Switchyard (`pip inst
 
 ## Using it on your own agent
 
-The guard is a drop-in replacement for the model URL. The agent does not change.
+The guard is a drop-in replacement for the model URL. The agent does not change, and it does not need NemoClaw:
+anything that speaks the OpenAI chat API (the OpenAI SDK, LangChain, most agent frameworks, curl) can point at it.
+Redaction runs on the guard's host; only the redacted request leaves.
 
-1. On the machine that holds the keys, fill `.env` and start the proxy:
+1. Start the proxy in front of whichever model server you use:
    ```bash
-   uv pip install -e ".[gliner]"                          # or ".[presidio]"
-   export GUARD_PROXY_TOKEN="$(openssl rand -hex 16)"
-   piiguard serve --host 0.0.0.0 --port 8787 --detector gliner   # rules + local detector; add --llm for the remote classifier
+   uv pip install -e ".[gliner]"                          # or ".[presidio]", or neither for rules only
+   export GUARD_PROXY_TOKEN="$(openssl rand -hex 16)"     # what your agent will use as its API key
+
+   # OpenAI
+   PIIGUARD_UPSTREAM_KEY="$OPENAI_API_KEY" \
+     piiguard serve --upstream https://api.openai.com/v1 --allow-model gpt-4o-mini --detector gliner
+
+   # A local model with Ollama (nothing leaves the machine at all; no key needed)
+   piiguard serve --upstream http://127.0.0.1:11434/v1 --allow-model llama3.1:8b
+
+   # vLLM, LM Studio, Together, Groq, Crusoe, ...: same pattern, their OpenAI-compatible base URL
    ```
-2. Point the agent at it: base URL `http://<host>:8787/v1`, API key = the proxy token. Any OpenAI-compatible client
-   works. For a NemoClaw sandbox, run `nemoclaw/onboard.sh` (custom provider pointing at the proxy) and apply
+   With no `--upstream` the proxy uses `$PIIGUARD_UPSTREAM_URL`, then Crusoe (the hackathon setup). The upstream key
+   comes from `$PIIGUARD_UPSTREAM_KEY`; the old `CRUSOE_*` names still work for Crusoe and are never sent anywhere
+   else. `--allow-model` (or `PIIGUARD_MODEL_ALLOWLIST=a,b`) lists the model ids that may appear unredacted in the
+   request's `model` field; every other string is scanned. Add `--host 0.0.0.0` to serve other machines or a sandbox.
+2. Point the agent at it: base URL `http://<host>:8787/v1`, API key = the proxy token.
+   ```python
+   from openai import OpenAI
+   client = OpenAI(base_url="http://127.0.0.1:8787/v1", api_key=GUARD_PROXY_TOKEN)
+   client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": "Claim CLM-2026-0048213 for SSN 912-34-5678"}])
+   # the model sees "Claim [PII_CLAIM_NUMBER_1] for SSN [PII_SSN_1]"; your code gets the real values back
+   ```
+   For a NemoClaw sandbox, run `nemoclaw/onboard.sh` (custom provider pointing at the proxy) and apply
    `nemoclaw/piiguard-egress.yaml` so the sandbox can reach nothing else. Web search goes through `/you/search`.
 3. Let it harden on your traffic and keep the result under review:
    ```bash
