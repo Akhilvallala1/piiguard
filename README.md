@@ -620,7 +620,8 @@ Tracked as [GitHub issues](https://github.com/Akhilvallala1/piiguard/issues). In
    Wilson intervals, McNemar tests, a statistical gate, a cross-family red team, unseen-format tests, and gate and
    coach ablations *(done)*. Still open: a larger validation set for the statistical gate, repeated runs, and
    external attack sets.
-4. **Write-up:** a technical report on gated, auditable rule evolution for PII guards.
+4. **Write-up:** [technical report](docs/report.md) on gated, auditable rule evolution for PII guards *(draft)*.
+   Still to do: a blog post and a 2-minute demo video.
 
 ## License
 
