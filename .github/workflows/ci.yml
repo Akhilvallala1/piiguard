@@ -23,7 +23,8 @@ jobs:
       - name: Install
         run: |
           uv venv --python ${{ matrix.python-version }}
-          uv pip install -e ".[dev,middleware]"
+          uv pip install -e ".[dev,middleware,presidio]" "nemoguardrails>=0.24"
+          uv pip install pip && uv run --no-sync python -m spacy download en_core_web_lg
       - name: Git identity for gate tests (they commit to temp repos)
         run: |
           git config --global user.name "ci"

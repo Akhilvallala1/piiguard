@@ -212,6 +212,26 @@ def cmd_prune(a):
     print(f"committed {sha} as gen-{a.gen}: dropped {', '.join(res.dropped)}")
 
 
+def cmd_export(a):
+    from .export import guardrails_config, presidio_yaml
+    from .pii.rules import load_rules
+    from .redteam.domains import DOMAINS, domain_guard
+    from .pii.guard import Guard
+    rules = load_rules(ROOT / "guard" / "rules.yaml")
+    if a.domain:
+        if a.domain not in DOMAINS:
+            print(f"unknown domain {a.domain!r}; choose from {', '.join(sorted(DOMAINS))}", file=sys.stderr)
+            raise SystemExit(2)
+        rules = domain_guard(Guard(rules), a.domain).rules
+    kw = {"include_validated": a.include_validated, "prefix": a.prefix}
+    text = presidio_yaml(rules, **kw) if a.format == "presidio" else guardrails_config(rules, extra_entities=a.extra_entity, **kw)
+    if a.out:
+        Path(a.out).write_text(text)
+        print(f"wrote {a.out}", file=sys.stderr)
+    else:
+        print(text, end="")
+
+
 def cmd_report(a):
     hist = ROOT / "runs" / "history.jsonl"
     if not hist.exists():
@@ -279,6 +299,15 @@ def main(argv=None):
     s = sub.add_parser("bench", help="compare systems on the same held-out data (Presidio, gen-0, current, +LLM)"); s.add_argument("--data", default=str(DATA)); s.add_argument("--set", default="heldout", choices=["train", "val", "heldout"]); s.add_argument("--baseline-tag", default="gen-0"); s.add_argument("--llm", action="store_true", help="add the remote Nemotron classifier (sends text to Crusoe)"); s.add_argument("--detector", default="none", choices=["none", "presidio", "gliner", "gliner-broad", "all"], help="add rows for local base detectors on top of the current rules"); s.add_argument("--no-presidio", action="store_true"); s.add_argument("--by-technique", action="store_true"); s.set_defaults(fn=cmd_bench)
 
     s = sub.add_parser("prune", help="unlearning: drop rules whose removal changes no score; commit as a generation"); s.add_argument("--data", default=str(DATA)); s.add_argument("--gen", type=int, required=True); s.add_argument("--dry-run", action="store_true"); s.set_defaults(fn=cmd_prune)
+
+    s = sub.add_parser("export", help="export learned rules as Presidio recognizers or a NeMo Guardrails config block")
+    s.add_argument("format", choices=["presidio", "guardrails"])
+    s.add_argument("--domain", default=None, help="include an industry pack's rules, e.g. insurance")
+    s.add_argument("--include-validated", action="store_true", help="also export rules whose validator YAML cannot express (they over-match)")
+    s.add_argument("--prefix", default="PIIGUARD_", help="entity name prefix")
+    s.add_argument("--extra-entity", action="append", default=[], help="guardrails: also mask this Presidio entity, e.g. PERSON (repeatable)")
+    s.add_argument("--out", default=None)
+    s.set_defaults(fn=cmd_export)
 
     s = sub.add_parser("report", help="print generation history and held-out before/after"); s.add_argument("--markdown", action="store_true"); s.set_defaults(fn=cmd_report)
 

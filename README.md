@@ -310,6 +310,32 @@ Known limits: single host and token auth (a team deployment needs a real identit
 converted, not passed through; names are caught only with a detector on (`--detector` or `--llm`); the loop has seen a synthetic red
 team, not production traffic.
 
+### Already running Presidio or NeMo Guardrails? Export the learned rules
+
+You do not have to replace your detector to use what the loop learned. `piiguard export` turns `guard/rules.yaml`
+into the formats those tools already load, so the learned layer drops in next to what you run today.
+
+```bash
+piiguard export presidio --domain insurance --out recognizers.yaml
+#   registry.add_recognizers_from_yaml("recognizers.yaml")
+
+piiguard export guardrails --domain insurance --extra-entity PERSON --out piiguard-rails.yml
+#   merge into your NeMo Guardrails config.yml; it uses the built-in "mask sensitive data on input/output" flows
+```
+
+What the tests check (`tests/test_export.py`):
+
+- **Same spans.** Each exported recognizer matches exactly the same spans as piiguard's own rule on every attack and
+  clean sample in the repo. Flags are pinned, because Presidio's default `IGNORECASE` would quietly widen a learned
+  rule.
+- **Works in Guardrails.** NeMo Guardrails' own `mask_sensitive_data` action, given the exported config, masks the
+  adjuster badge, claim number and policy number that Presidio's built-in recognizers miss.
+- **Validators.** Rules that rely on a validator (Luhn checksum, decode-then-recheck) are left out of the YAML formats
+  by default and listed in the file header, because without the validator they over-match. In Python,
+  `piiguard.export.presidio_recognizers(rules)` returns Presidio recognizers with the validators attached.
+
+Re-export after each accepted generation. The YAML in git stays the reviewed source of truth.
+
 ### As an OpenShell plugin: supervisor middleware
 
 OpenShell's network policy decides *where* an agent may talk; it never reads request bodies. The hook NVIDIA built for
@@ -395,7 +421,8 @@ Tracked as [GitHub issues](https://github.com/Akhilvallala1/piiguard/issues). In
 
 1. **Trust:** license, CI, packaging, README that matches the code. *(done)*
 2. **Local first:** a local base detector (Presidio or GLiNER-PII) so no raw text leaves the host to be classified
-   *(done: `--detector`)*; learned rules exported as Presidio recognizers and as a NeMo Guardrails action.
+   *(done: `--detector`)*; learned rules exported as Presidio recognizers and as a NeMo Guardrails config
+   *(done: `piiguard export`)*.
 3. **Evaluation that holds up:** held-out sets of 300+ with confidence intervals, a red team from a different model
    family than the coach, external attack sets, unseen identifier formats, a larger clean corpus for false positives,
    partial-leak scoring, a statistical gate, and ablations.
