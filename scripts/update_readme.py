@@ -64,6 +64,10 @@ def main():
     if fm.exists():
         from eval_formats import render as f_render
         text = section("formats", f_render(json.loads(fm.read_text())), text)
+    ho = ROOT / "runs" / "holdout-technique.json"
+    if ho.exists():
+        from eval_holdout_technique import render as h_render
+        text = section("holdout", h_render(json.loads(ho.read_text())), text)
     README.write_text(text)
     print("README updated")
 

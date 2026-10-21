@@ -266,6 +266,50 @@ Learning a new format: 75 training attacks on healthcare and finance formats onl
   28 fixed, but 12 broken. A real regression on formats the gate never checked. The shape-memory ledger exists to
   stop exactly this, but it can only protect shapes it has already seen.
 
+### Can it handle a trick it never trained on?
+
+Training and the fresh test set share the same 12 encoders, so a good fresh-set score could just mean "learned these
+12 tricks". `scripts/eval_holdout_technique.py` takes one technique out of training entirely and trains from gen-0 in
+an isolated clone (180 attacks, six generations). It then scores that technique alone on unseen values. Six
+techniques, about $0.70 in total:
+
+<!-- holdout:start -->
+| held-out technique | its leak, gen-0 | its leak after training without it | fixed / broke | p | trained techniques, gen-0 to after |
+|---|---|---|---|---|---|
+| reversed | 67.6% [50.8%, 80.9%] | 67.6% [50.8%, 80.9%] | 0 / 0 | 1.000 | 77% to 52% |
+| spelled | 100.0% [92.9%, 100.0%] | 100.0% [92.9%, 100.0%] | 0 / 0 | 1.000 | 73% to 44% |
+| hex | 100.0% [92.4%, 100.0%] | 21.3% [12.0%, 34.9%] | 37 / 0 | <0.001 | 74% to 32% |
+| split_lines | 100.0% [91.8%, 100.0%] | 81.4% [67.4%, 90.3%] | 8 / 0 | 0.004 | 74% to 50% |
+| unicode_separators | 100.0% [81.6%, 100.0%] | 64.7% [41.3%, 82.7%] | 6 / 0 | 0.016 | 75% to 43% |
+| base64 | 100.0% [92.4%, 100.0%] | 89.4% [77.4%, 95.4%] | 5 / 0 | 0.031 | 74% to 26% |
+<!-- holdout:end -->
+
+- **Spelled-out digits and reversed values: no transfer at all.** 0 fixed. Learning other tricks taught it nothing
+  about these.
+- **Hex: strong transfer, but not from generalizing.** The coach's instructions list piiguard's built-in decoders
+  (base64, hex, percent and reverse), so it can write a hex rule without seeing a hex attack. That is prior
+  knowledge given in the prompt, not something learned from the data.
+- **Split lines, non-breaking separators, base64:** small but significant transfer, 5 to 8 attacks each, mostly
+  from broader digit and separator rules.
+
+The honest reading: the loop learns the tricks it is shown, and it rarely invents a defense for a trick it is not
+shown. Unless the decoder for that trick is already in its toolbox.
+
+### Threats to validity
+
+The evidence against "grading your own homework", and what is still open:
+
+| concern | status |
+|---|---|
+| Coach and attacker from the same model family | Training and fresh attacks are Python encoders, not a model. The cross-family set is written by gpt-oss-120b and Gemma 4, and it is harder (43.6% vs 25.6% leak). |
+| Test values seen in training | Fixed. Fresh, cross-family and format sets share no value with training, which a test checks. |
+| Test carriers seen in training | Fixed for the ablations: training uses the original templates and the test sets use new ones. |
+| Test techniques seen in training | Only partly addressed. See the hold-out table above. Most tricks do not transfer. |
+| The author wrote the scoring and the attack-validity check | Open. Model-invented attacks are kept only if piiguard's own decoder recovers the value, which favors tricks it can decode. |
+| No attacks written by people | Open. This is the strongest remaining gap. |
+| One run per configuration | Open. Gaps inside the intervals should be read as noise. |
+| External data | NVIDIA Nemotron-PII (written and labeled by others) is the one fully independent check. |
+
 ### External check: NVIDIA Nemotron-PII (data we did not make)
 
 Everything above is scored on attacks our own red team generated. To answer "you wrote the test", we also ran the
