@@ -1,0 +1,120 @@
+{
+  "n": 400,
+  "zero_shot": {
+    "Microsoft Presidio (default recognizers)": {
+      "leaks": 266,
+      "n": 400,
+      "by_domain": {
+        "insurance": [
+          69,
+          114
+        ],
+        "healthcare": [
+          57,
+          99
+        ],
+        "finance": [
+          65,
+          99
+        ],
+        "legal": [
+          75,
+          88
+        ]
+      }
+    },
+    "piiguard gen-23 learned rules": {
+      "leaks": 256,
+      "n": 400,
+      "by_domain": {
+        "insurance": [
+          21,
+          114
+        ],
+        "healthcare": [
+          75,
+          99
+        ],
+        "finance": [
+          77,
+          99
+        ],
+        "legal": [
+          83,
+          88
+        ]
+      }
+    },
+    "piiguard gen-23 rules + matching industry pack": {
+      "leaks": 147,
+      "n": 400,
+      "by_domain": {
+        "insurance": [
+          21,
+          114
+        ],
+        "healthcare": [
+          35,
+          99
+        ],
+        "finance": [
+          38,
+          99
+        ],
+        "legal": [
+          53,
+          88
+        ]
+      }
+    },
+    "piiguard gen-23 rules + local GLiNER-PII": {
+      "leaks": 229,
+      "n": 400,
+      "by_domain": {
+        "insurance": [
+          20,
+          114
+        ],
+        "healthcare": [
+          70,
+          99
+        ],
+        "finance": [
+          62,
+          99
+        ],
+        "legal": [
+          77,
+          88
+        ]
+      }
+    }
+  },
+  "learn": {
+    "train": 75,
+    "val": 25,
+    "generations": 6,
+    "accepted": 4,
+    "rules_before": 31,
+    "rules_after": 40,
+    "groups": {
+      "trained formats (healthcare, finance)": {
+        "n": 198,
+        "before": 152,
+        "after": 43,
+        "fixed": 109,
+        "broken": 0,
+        "p": 1.5407439555097887e-33
+      },
+      "unseen formats (legal, insurance)": {
+        "n": 202,
+        "before": 104,
+        "after": 88,
+        "fixed": 28,
+        "broken": 12,
+        "p": 0.008294501687487355
+      }
+    },
+    "spend": "estimated spend $0.38 (Deepseek-V4-Flash 13,765 in / 5,022 out; NVIDIA-Nemotron-3-Super-120B-A12B 142,131 in / 122,937 out)"
+  }
+}

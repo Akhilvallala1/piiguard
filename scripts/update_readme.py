@@ -46,6 +46,28 @@ def main():
         rows.append(f"\n{d['n_records']} records, {d['n_entities']} labeled spans, {len(d['domains'])} domains, locale us, seed 7."
                     + (f" Structured identifiers: {next(iter(d['systems'].values())).get('n_hard', '?')} spans ({', '.join(next(iter(d['systems'].values())).get('hard_labels', [])[:12])}{'…' if len(next(iter(d['systems'].values())).get('hard_labels', [])) > 12 else ''})." if next(iter(d['systems'].values())).get('hard_labels') else ""))
         text = section("external", "\n".join(rows), text)
+    rig = ROOT / "runs" / "rigorous.json"
+    if rig.exists():
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from eval_rigorous import render
+        text = section("rigorous", render(json.loads(rig.read_text())), text)
+    xf = ROOT / "runs" / "rigorous-crossfamily.json"
+    if xf.exists():
+        from eval_rigorous import render as r_render
+        text = section("crossfamily", r_render(json.loads(xf.read_text())), text)
+    from ablate_gates import render as a_render
+    for name, f in (("coaches", "ablation-coaches-v2.json"), ("gates", "ablation-gates-v2.json")):
+        p = ROOT / "runs" / f
+        if p.exists():
+            text = section(name, a_render(json.loads(p.read_text())), text)
+    fm = ROOT / "runs" / "formats.json"
+    if fm.exists():
+        from eval_formats import render as f_render
+        text = section("formats", f_render(json.loads(fm.read_text())), text)
+    ho = ROOT / "runs" / "holdout-technique.json"
+    if ho.exists():
+        from eval_holdout_technique import render as h_render
+        text = section("holdout", h_render(json.loads(ho.read_text())), text)
     README.write_text(text)
     print("README updated")
 

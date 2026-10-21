@@ -1,0 +1,130 @@
+{
+  "generations": 6,
+  "train": 180,
+  "val": 60,
+  "arms": {
+    "start (gen-0)": {
+      "rules": 4,
+      "generations": 0,
+      "accepted": 0,
+      "fp": 3,
+      "n_clean": 1075,
+      "fresh": {
+        "leaks": 380,
+        "n": 500,
+        "vs_threshold_fixed": 0,
+        "vs_threshold_broken": 286,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 8.043058733543795e-87
+      },
+      "crossfamily": {
+        "leaks": 394,
+        "n": 500,
+        "vs_threshold_fixed": 0,
+        "vs_threshold_broken": 248,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 2.210859150104178e-75
+      }
+    },
+    "threshold": {
+      "rules": 14,
+      "generations": 6,
+      "accepted": 4,
+      "fp": 19,
+      "n_clean": 1075,
+      "fresh": {
+        "leaks": 94,
+        "n": 500,
+        "vs_threshold_fixed": 0,
+        "vs_threshold_broken": 0,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 1.0
+      },
+      "crossfamily": {
+        "leaks": 146,
+        "n": 500,
+        "vs_threshold_fixed": 0,
+        "vs_threshold_broken": 0,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 1.0
+      }
+    },
+    "threshold+memory": {
+      "rules": 11,
+      "generations": 6,
+      "accepted": 4,
+      "fp": 9,
+      "n_clean": 1075,
+      "fresh": {
+        "leaks": 164,
+        "n": 500,
+        "vs_threshold_fixed": 5,
+        "vs_threshold_broken": 75,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 2.1264329525358845e-17
+      },
+      "crossfamily": {
+        "leaks": 194,
+        "n": 500,
+        "vs_threshold_fixed": 11,
+        "vs_threshold_broken": 59,
+        "p_better_than_threshold": 0.9999999995997588,
+        "p_worse_than_threshold": 2.2330873645316556e-09
+      }
+    },
+    "stat": {
+      "rules": 11,
+      "generations": 6,
+      "accepted": 1,
+      "fp": 3,
+      "n_clean": 1075,
+      "fresh": {
+        "leaks": 284,
+        "n": 500,
+        "vs_threshold_fixed": 0,
+        "vs_threshold_broken": 190,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 6.372367644529809e-58
+      },
+      "crossfamily": {
+        "leaks": 301,
+        "n": 500,
+        "vs_threshold_fixed": 0,
+        "vs_threshold_broken": 155,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 2.1895288505075267e-47
+      }
+    },
+    "stat+memory": {
+      "rules": 7,
+      "generations": 6,
+      "accepted": 1,
+      "fp": 3,
+      "n_clean": 1075,
+      "fresh": {
+        "leaks": 281,
+        "n": 500,
+        "vs_threshold_fixed": 0,
+        "vs_threshold_broken": 187,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 5.0978941156238473e-57
+      },
+      "crossfamily": {
+        "leaks": 322,
+        "n": 500,
+        "vs_threshold_fixed": 0,
+        "vs_threshold_broken": 176,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 1.044048714879764e-53
+      }
+    }
+  },
+  "compare": "gates",
+  "max_new_fp": null,
+  "spend": {
+    "threshold": "n/a",
+    "threshold+memory": "n/a",
+    "stat": "n/a",
+    "stat+memory": "n/a"
+  }
+}
