@@ -68,14 +68,15 @@ def training_set(seed: int = 777) -> tuple[list[dict], list[dict]]:
     return rows[:180], rows[180:]
 
 
-def make_arm(base: Path, slug: str, train, val) -> Path:
+def make_arm(base: Path, slug: str, train, val, start_ref: str = "gen-0") -> Path:
+    """Isolated clone with guard/ reset to start_ref (gen-0 by default, HEAD for 'start from the learned rules')."""
     path = base / slug
     if path.exists():
         shutil.rmtree(path)
     _sh("git", "clone", "-q", "--no-hardlinks", str(ROOT), str(path), cwd=base)
     _sh("git", "checkout", "-q", "-B", "ablation", cwd=path)
-    _sh("git", "checkout", "gen-0", "--", "guard/", cwd=path)
-    _sh("git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "ablation: reset guard to gen-0", "--allow-empty", cwd=path)
+    _sh("git", "checkout", start_ref, "--", "guard/", cwd=path)
+    _sh("git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", f"ablation: reset guard to {start_ref}", "--allow-empty", cwd=path)
     for t in _sh("git", "tag", "--list", "gen-*", cwd=path).split():
         _sh("git", "tag", "-d", t, cwd=path)
     _sh("git", "tag", "gen-0", cwd=path)
