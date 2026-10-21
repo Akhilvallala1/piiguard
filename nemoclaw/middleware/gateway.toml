@@ -1,0 +1,28 @@
+# OpenShell gateway registration for the piiguard supervisor middleware (RFC 0009, research preview).
+# Append to the gateway's TOML and restart the gateway; it calls Describe at startup and refuses to start
+# if the service is unreachable. The `name` is what sandbox policies reference in `network_middlewares`.
+#
+# Start the service first (from the piiguard repo):
+#   .venv/bin/piiguard middleware --host 0.0.0.0 --port 50051 --allow-insecure --llm
+#
+# Local development (plaintext, no token). Replace with the TLS + JWT block below for anything shared.
+[[openshell.supervisor.middleware]]
+name = "piiguard"
+grpc_endpoint = "http://host.openshell.internal:50051"
+allow_insecure_transport = true
+max_payload_bytes = 1048576
+# Each evaluation must finish inside this window. Rules alone take microseconds; with --llm the Nemotron
+# classifier adds ~1-3 s, so raise it from the 500ms default (max 30s).
+timeout = "10s"
+
+# Authenticated registration: the gateway signs a short-lived Ed25519 JWT per call and we verify it.
+#   .venv/bin/piiguard middleware --host 0.0.0.0 --port 50051 --llm \
+#       --tls-cert piiguard.pem --tls-key piiguard-key.pem \
+#       --gateway-id <gateway_id> --jwt-key gateway-signing-public.pem
+# [[openshell.supervisor.middleware]]
+# name = "piiguard"
+# grpc_endpoint = "https://piiguard.internal:50051"
+# tls_ca_cert_path = "/etc/openshell/piiguard-ca.pem"
+# audience = "urn:openshell:extension:middleware:piiguard"   # the default; must match what the service verifies
+# max_payload_bytes = 1048576
+# timeout = "10s"

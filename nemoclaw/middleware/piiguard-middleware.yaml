@@ -1,0 +1,44 @@
+# Sandbox policy for the middleware deployment. Unlike piiguard-egress.yaml (everything through the proxy on
+# port 8787), here the agent talks to Crusoe and You.com DIRECTLY and the sandbox supervisor pauses each request
+# to run it through the piiguard middleware registered in gateway.toml. No proxy, no URL change in the agent.
+#
+#   openshell policy set --sandbox <name> --file nemoclaw/middleware/piiguard-middleware.yaml   (OpenShell CLI)
+#   NemoClaw does not expose network_middlewares yet; apply it through OpenShell until it does.
+version: 1
+
+network_middlewares:
+  piiguard:
+    name: PII guard
+    middleware: piiguard          # registration name from gateway.toml
+    order: 10
+    on_error: fail_closed         # middleware down => request blocked, never leaked
+    config:
+      mode: redact                # redact | deny
+      restore: true               # put real values back into the response before the agent sees it
+      identity_encoding: true     # ask upstream for an uncompressed body so the response is inspectable
+      on_binary: deny             # a body we cannot scan does not leave
+    endpoints:
+      include:
+        - api.inference.crusoecloud.com
+        - api.you.com
+
+network_policies:
+  crusoe:
+    name: Crusoe Managed Inference
+    endpoints:
+      - host: api.inference.crusoecloud.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: { method: POST, path: "/v1/chat/completions" }
+          - allow: { method: GET, path: "/v1/models" }
+  youcom:
+    name: You.com search
+    endpoints:
+      - host: api.you.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: { method: GET, path: "/v1/search" }

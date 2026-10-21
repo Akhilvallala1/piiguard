@@ -9,3 +9,4 @@ runs/*/
 dist/
 video/
 data/external/
+.DS_Store

@@ -1,4 +1,4 @@
-"""piiguard CLI: gen-attacks | eval | improve | report | serve | redact | models"""
+"""piiguard CLI: gen-attacks | eval | improve | report | serve | middleware | redact | models"""
 from __future__ import annotations
 
 import argparse
@@ -229,6 +229,23 @@ def cmd_serve(a):
     uvicorn.run(app, host=cfg.host, port=a.port, log_level="warning")
 
 
+def cmd_middleware(a):
+    """Run the guard as an OpenShell supervisor middleware (gRPC). Register it in gateway TOML, attach via network_middlewares."""
+    from .middleware.server import JwtAuth, serve
+    from .pii.guard import Guard
+    auth = None
+    if a.jwt_key:
+        if not a.gateway_id:
+            print("--jwt-key needs --gateway-id (tokens are issued as openshell-gateway:<gateway_id>)", file=sys.stderr)
+            raise SystemExit(2)
+        auth = JwtAuth.from_file(a.jwt_key, a.gateway_id, a.audience or f"urn:openshell:extension:middleware:{a.name}")
+    elif a.host not in ("127.0.0.1", "localhost", "::1") and not a.allow_insecure:
+        print(f"refusing to bind {a.host} without --jwt-key; pass --allow-insecure for a trusted local network", file=sys.stderr)
+        raise SystemExit(2)
+    guard = Guard.from_dir(ROOT / "guard", _classifier(a.llm))
+    serve(guard, a.host, a.port, tls_cert=a.tls_cert, tls_key=a.tls_key, auth=auth, name=a.name, max_payload_bytes=a.max_payload_bytes)
+
+
 def main(argv=None):
     from .env import load_dotenv
     load_dotenv()
@@ -252,6 +269,8 @@ def main(argv=None):
     s = sub.add_parser("report", help="print generation history and held-out before/after"); s.add_argument("--markdown", action="store_true"); s.set_defaults(fn=cmd_report)
 
     s = sub.add_parser("serve", help="run the guard proxy"); s.add_argument("--host", default="127.0.0.1", help="use 0.0.0.0 (with GUARD_PROXY_TOKEN set) so a NemoClaw sandbox can reach it"); s.add_argument("--port", type=int, default=8787); s.add_argument("--llm", action="store_true"); s.set_defaults(fn=cmd_serve)
+
+    s = sub.add_parser("middleware", help="run the guard as an OpenShell supervisor middleware (gRPC, RFC 0009)"); s.add_argument("--host", default="127.0.0.1"); s.add_argument("--port", type=int, default=50051); s.add_argument("--name", default="piiguard", help="registration name used in gateway TOML and policy"); s.add_argument("--llm", action="store_true"); s.add_argument("--max-payload-bytes", type=int, default=1 << 20); s.add_argument("--gateway-id", default=None); s.add_argument("--audience", default=None, help="defaults to urn:openshell:extension:middleware:<name>"); s.add_argument("--jwt-key", default=None, help="gateway signing public key (PEM) or JWKS JSON file"); s.add_argument("--tls-cert", default=None); s.add_argument("--tls-key", default=None); s.add_argument("--allow-insecure", action="store_true", help="bind a non-loopback host with no token check"); s.set_defaults(fn=cmd_middleware)
 
     a = p.parse_args(argv)
     a.fn(a)
