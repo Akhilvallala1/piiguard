@@ -24,6 +24,10 @@ jobs:
         run: |
           uv venv --python ${{ matrix.python-version }}
           uv pip install -e ".[dev,middleware]"
+      - name: Git identity for gate tests (they commit to temp repos)
+        run: |
+          git config --global user.name "ci"
+          git config --global user.email "ci@example.com"
       - name: Test (no network, no API keys)
         run: uv run --no-sync pytest -q -W error::SyntaxWarning
       - name: Build package
