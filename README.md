@@ -38,9 +38,11 @@ piiguard is the missing content layer, and it is built to get better on its own:
 1. **Guard proxy** sits between the sandboxed agent and every allowed egress. It redacts PII in outbound
    payloads to reversible tokens (`[PII_SSN_1]`), forwards the request, and restores the values on the way
    back so the agent still completes its task. Provider keys live in the proxy, never in the sandbox.
-2. **Red team** (Nemotron 3 Super on Crusoe + deterministic encoders) generates attacks that smuggle PII past
-   the guard: base64, hex, spaced digits, fullwidth unicode, spelled-out numbers, percent-encoding, ROT18,
-   reversed strings, non-breaking separators, split across lines, inside JSON / URLs / code / logs / tables.
+2. **Red team** generates attacks that smuggle PII past the guard. Training attacks come from 12 deterministic Python
+   encoders: base64, hex, spaced digits, fullwidth unicode, spelled-out numbers, percent-encoding, ROT18, reversed
+   strings, non-breaking separators and split lines, placed inside JSON, URLs, code, logs and tables. An optional mode
+   (`--llm-carriers`) has Nemotron write the surrounding text, but none of the committed training sets used it. A
+   separate test set is written by other model families (gpt-oss-120b, Gemma 4).
 3. **Coach** (Nemotron 3 Super) reads the attacks that leaked and rewrites the guard's two evolvable artifacts:
    `guard/rules.yaml` (regex rules) and `guard/prompt.md` (instructions for a small Nemotron 3.5 Lightning
    span classifier).
@@ -170,8 +172,9 @@ none broken.
 
 ### Attacks written by other model families
 
-The coach is Nemotron. So far the red team was mostly Python encoders, and Nemotron when it wrote text. To test
-with someone else's blind spots, `piiguard/redteam/cross_family.py` had **gpt-oss-120b** and **Gemma 4 31B** write
+The coach is Nemotron. Every committed training and fresh test attack comes from the same 12 Python encoders, with
+no model involved. To test with someone else's blind spots, `piiguard/redteam/cross_family.py` had **gpt-oss-120b**
+and **Gemma 4 31B** write
 500 attacks on unseen values (`data/attacks-crossfamily`, about $0.13). 381 wrap a known encoding in the model's own
 wording. 119 use a technique the model invented itself: zero-width spaces, "956 dot 31 dot 8108", digits read
 aloud, look-alike Unicode. An invented attack is kept only if its carrier decodes back to the real value.
@@ -546,7 +549,8 @@ runs/                                history.jsonl, report.json, proxy-events.js
 ## Stack
 
 - **Crusoe Managed Inference** for all models (OpenAI-compatible endpoint).
-- **NVIDIA Nemotron**: 3.5 Lightning 30B-A3B as the span classifier and demo agent model, 3 Super 120B-A12B as coach and red team.
+- **NVIDIA Nemotron**: 3.5 Lightning 30B-A3B as the span classifier and demo agent model, 3 Super 120B-A12B as coach
+  (and optional carrier writer). gpt-oss-120b and Gemma 4 31B write the cross-family test attacks.
 - **NVIDIA NemoClaw / OpenShell** as the sandbox; the guard is pitched as its content layer and is the sandbox's only inference route.
 - **You.com** search as the second egress the guard protects (and the exfil channel in the demo).
 
