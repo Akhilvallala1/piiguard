@@ -51,6 +51,19 @@ def main():
         sys.path.insert(0, str(ROOT / "scripts"))
         from eval_rigorous import render
         text = section("rigorous", render(json.loads(rig.read_text())), text)
+    xf = ROOT / "runs" / "rigorous-crossfamily.json"
+    if xf.exists():
+        from eval_rigorous import render as r_render
+        text = section("crossfamily", r_render(json.loads(xf.read_text())), text)
+    from ablate_gates import render as a_render
+    for name, f in (("coaches", "ablation-coaches-v2.json"), ("gates", "ablation-gates-v2.json")):
+        p = ROOT / "runs" / f
+        if p.exists():
+            text = section(name, a_render(json.loads(p.read_text())), text)
+    fm = ROOT / "runs" / "formats.json"
+    if fm.exists():
+        from eval_formats import render as f_render
+        text = section("formats", f_render(json.loads(fm.read_text())), text)
     README.write_text(text)
     print("README updated")
 

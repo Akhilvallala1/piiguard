@@ -168,6 +168,101 @@ significantly more validation attacks than it breaks (exact McNemar, `--alpha 0.
 5-point threshold accepts a change that fixes 2 attacks (p=0.25). The statistical gate needs 5 or more fixes with
 none broken.
 
+### Attacks written by other model families
+
+The coach is Nemotron. So far the red team was mostly Python encoders, and Nemotron when it wrote text. To test
+with someone else's blind spots, `piiguard/redteam/cross_family.py` had **gpt-oss-120b** and **Gemma 4 31B** write
+500 attacks on unseen values (`data/attacks-crossfamily`, about $0.13). 381 wrap a known encoding in the model's own
+wording. 119 use a technique the model invented itself: zero-width spaces, "956 dot 31 dot 8108", digits read
+aloud, look-alike Unicode. An invented attack is kept only if its carrier decodes back to the real value.
+
+<!-- crossfamily:start -->
+| system | strict leak (n=500) | any leak, incl. partial | false positives (n=1075) | ms/text |
+|---|---|---|---|---|
+| Microsoft Presidio (default recognizers) | 51.4% [47.0%, 55.8%] | 53.0% [48.6%, 57.3%] | 45.7% [42.7%, 48.7%] | 3 |
+| Microsoft Presidio (scoped: SSN, email, phone, card) | 73.0% [68.9%, 76.7%] | 73.0% [68.9%, 76.7%] | 2.0% [1.3%, 3.0%] | 3 |
+| piiguard gen-0 rules (hand-written) | 78.8% [75.0%, 82.2%] | 78.8% [75.0%, 82.2%] | 0.3% [0.1%, 0.8%] | 0 |
+| piiguard gen-23 rules (learned, no model) | 43.6% [39.3%, 48.0%] | 43.6% [39.3%, 48.0%] | 0.3% [0.1%, 0.8%] | 0 |
+| piiguard gen-23 rules + local presidio | 37.0% [32.9%, 41.3%] | 38.2% [34.0%, 42.5%] | 5.1% [4.0%, 6.6%] | 3 |
+| piiguard gen-23 rules + local gliner | 22.2% [18.8%, 26.0%] | 23.2% [19.7%, 27.1%] | 15.4% [13.4%, 17.7%] | 136 |
+
+Learning effect, gen-0 to learned rules, on these unseen values: fixed 176, broke 0, one-sided exact McNemar p <0.001. Brackets are 95% Wilson intervals.
+<!-- crossfamily:end -->
+
+The learned rules leak 43.6% here against 25.6% on the deterministic fresh set. On the model-invented techniques
+they leak 90 of 119. That is the clearest map of what the next generations should learn.
+
+### Which coach, which gate: controlled comparison
+
+`scripts/ablate_gates.py` gives each arm its own clone reset to gen-0. Every arm gets the same 180 training and 60
+validation attacks and eight generations. Training uses the original carrier templates, so neither held-out set
+shares a value or a carrier with it. Each arm is spend-capped (`PIIGUARD_BUDGET_USD`), and the whole comparison cost
+under $1.50.
+
+<!-- coaches:start -->
+| arm | accepted / generations | rules | fresh leak (n=500) | cross-family leak (n=500) | false positives (n=1075) |
+|---|---|---|---|---|---|
+| start (gen-0) | 0 / 0 | 4 | 76.0% [72.1%, 79.5%] | 78.8% [75.0%, 82.2%] | 0.3% [0.1%, 0.8%] |
+| coach: Nemotron 3 Super | 3 / 8 | 13 | 37.4% [33.3%, 41.7%] | 43.0% [38.7%, 47.4%] | 0.3% [0.1%, 0.8%] |
+| coach: gpt-oss-120b | 1 / 8 | 6 | 69.8% [65.6%, 73.7%] | 73.2% [69.2%, 76.9%] | 0.3% [0.1%, 0.8%] |
+| coach: DeepSeek V4 Pro | 2 / 8 | 15 | 42.2% [37.9%, 46.6%] | 47.2% [42.9%, 51.6%] | 0.5% [0.2%, 1.1%] |
+<!-- coaches:end -->
+
+**Coach model.** Same gate and same data. Nemotron 3 Super trained the best rules; DeepSeek V4 Pro was close behind.
+gpt-oss-120b is about twenty times cheaper but barely improved on gen-0. That is evidence for the default coach
+rather than a hackathon choice.
+
+<!-- gates:start -->
+| arm | accepted / generations | rules | fresh leak (n=500) | cross-family leak (n=500) | false positives (n=1075) |
+|---|---|---|---|---|---|
+| start (gen-0) | 0 / 0 | 4 | 76.0% [72.1%, 79.5%] | 78.8% [75.0%, 82.2%] | 0.3% [0.1%, 0.8%] |
+| threshold | 3 / 8 | 14 | 41.0% [36.8%, 45.4%] | 49.0% [44.6%, 53.4%] | 0.8% [0.4%, 1.6%] |
+| threshold+memory | 4 / 8 | 17 | 37.6% [33.5%, 41.9%] | 41.4% [37.2%, 45.8%] | 0.5% [0.2%, 1.1%] |
+| stat | 2 / 8 | 16 | 54.6% [50.2%, 58.9%] | 59.4% [55.0%, 63.6%] | 0.3% [0.1%, 0.8%] |
+| stat+memory | 2 / 8 | 10 | 54.8% [50.4%, 59.1%] | 61.0% [56.7%, 65.2%] | 0.3% [0.1%, 0.8%] |
+<!-- gates:end -->
+
+**Gate.** The statistical gate is the safer one. It turned down proposals that would have newly flagged 49, 214 or
+602 of the 1,075 clean samples. On 60 validation attacks it is also too cautious: it accepted 2 changes out of 8,
+ended at 55% leak, and the threshold gate reached 38 to 41%. The gate is only as good as the validation set behind
+it, so the next step is a bigger validation set. That is the trade-off between safety and learning speed that the
+report studies. Each configuration was run once with n=500 per held-out set; treat gaps inside the intervals as noise.
+
+### Unseen identifier formats
+
+`scripts/eval_formats.py` builds 400 attacks with organization-specific identifiers across four industries:
+
+- insurance: adjuster badges, claims, policies
+- healthcare: MRNs, NPIs, member IDs
+- finance: accounts, routing numbers, IBANs
+- legal: dockets, matters, bar numbers
+
+Insurance is not truly unseen for the main rules, because generations 22 and 23 trained on it. The other three are.
+
+<!-- formats:start -->
+| system | all unseen formats (n=400) | insurance | healthcare | finance | legal |
+|---|---|---|---|---|---|
+| Microsoft Presidio (default recognizers) | 66.5% [61.7%, 70.9%] | 69/114 | 57/99 | 65/99 | 75/88 |
+| piiguard gen-23 learned rules | 64.0% [59.2%, 68.6%] | 21/114 | 75/99 | 77/99 | 83/88 |
+| piiguard gen-23 rules + matching industry pack | 36.8% [32.2%, 41.6%] | 21/114 | 35/99 | 38/99 | 53/88 |
+| piiguard gen-23 rules + local GLiNER-PII | 57.2% [52.4%, 62.0%] | 20/114 | 70/99 | 62/99 | 77/88 |
+
+Learning a new format: 75 training attacks on healthcare and finance formats only, 6 generations, 4 accepted, rules 31 to 40.
+
+| held-out group | leak before | leak after | fixed | broke | p |
+|---|---|---|---|---|---|
+| trained formats (healthcare, finance) | 76.8% [70.4%, 82.1%] | 21.7% [16.5%, 28.0%] | 109 | 0 | <0.001 |
+| unseen formats (legal, insurance) | 51.5% [44.6%, 58.3%] | 43.6% [36.9%, 50.5%] | 28 | 12 | 0.008 |
+<!-- formats:end -->
+
+- **Zero-shot is weak for everyone.** On formats they were never shown, the learned rules and Presidio both leak
+  roughly two thirds. Local GLiNER helps a little. The one-line seed rules in each industry pack help the most.
+- **The loop learns a new format fast.** Training on healthcare and finance only (75 attacks, six generations, $0.38)
+  cut leaks on held-out values of those formats from 77% to 22%: 109 fixed, 0 broken.
+- **Some of it transfers, with a cost.** On legal and insurance formats it never saw, leaks fell from 52% to 44%:
+  28 fixed, but 12 broken. A real regression on formats the gate never checked. The shape-memory ledger exists to
+  stop exactly this, but it can only protect shapes it has already seen.
+
 ### External check: NVIDIA Nemotron-PII (data we did not make)
 
 Everything above is scored on attacks our own red team generated. To answer "you wrote the test", we also ran the
@@ -474,8 +569,9 @@ Tracked as [GitHub issues](https://github.com/Akhilvallala1/piiguard/issues). In
    *(done: `--detector`)*; learned rules exported as Presidio recognizers and as a NeMo Guardrails config
    *(done: `piiguard export`)*.
 3. **Evaluation that holds up:** fresh-value held-out set (n=500), 1,075-sample clean corpus, partial-leak scoring,
-   Wilson intervals, McNemar tests and a statistical gate *(done)*. Still open: a red team from a different model
-   family than the coach, external attack sets, unseen identifier formats, and ablations.
+   Wilson intervals, McNemar tests, a statistical gate, a cross-family red team, unseen-format tests, and gate and
+   coach ablations *(done)*. Still open: a larger validation set for the statistical gate, repeated runs, and
+   external attack sets.
 4. **Write-up:** a technical report on gated, auditable rule evolution for PII guards.
 
 ## License
