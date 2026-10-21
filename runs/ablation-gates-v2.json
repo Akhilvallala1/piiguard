@@ -1,0 +1,130 @@
+{
+  "generations": 6,
+  "train": 180,
+  "val": 60,
+  "arms": {
+    "start (gen-0)": {
+      "rules": 4,
+      "generations": 0,
+      "accepted": 0,
+      "fp": 3,
+      "n_clean": 1075,
+      "fresh": {
+        "leaks": 380,
+        "n": 500,
+        "vs_threshold_fixed": 0,
+        "vs_threshold_broken": 175,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 2.088097429759528e-53
+      },
+      "crossfamily": {
+        "leaks": 394,
+        "n": 500,
+        "vs_threshold_fixed": 0,
+        "vs_threshold_broken": 149,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 1.401298464324817e-45
+      }
+    },
+    "threshold": {
+      "rules": 14,
+      "generations": 8,
+      "accepted": 3,
+      "fp": 9,
+      "n_clean": 1075,
+      "fresh": {
+        "leaks": 205,
+        "n": 500,
+        "vs_threshold_fixed": 0,
+        "vs_threshold_broken": 0,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 1.0
+      },
+      "crossfamily": {
+        "leaks": 245,
+        "n": 500,
+        "vs_threshold_fixed": 0,
+        "vs_threshold_broken": 0,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 1.0
+      }
+    },
+    "threshold+memory": {
+      "rules": 17,
+      "generations": 8,
+      "accepted": 4,
+      "fp": 5,
+      "n_clean": 1075,
+      "fresh": {
+        "leaks": 188,
+        "n": 500,
+        "vs_threshold_fixed": 76,
+        "vs_threshold_broken": 59,
+        "p_better_than_threshold": 0.08412960232996221,
+        "p_worse_than_threshold": 0.9394931371724411
+      },
+      "crossfamily": {
+        "leaks": 207,
+        "n": 500,
+        "vs_threshold_fixed": 72,
+        "vs_threshold_broken": 34,
+        "p_better_than_threshold": 0.0001422643094581259,
+        "p_worse_than_threshold": 0.9999358896352658
+      }
+    },
+    "stat": {
+      "rules": 16,
+      "generations": 8,
+      "accepted": 2,
+      "fp": 3,
+      "n_clean": 1075,
+      "fresh": {
+        "leaks": 273,
+        "n": 500,
+        "vs_threshold_fixed": 3,
+        "vs_threshold_broken": 71,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 3.578714202149419e-18
+      },
+      "crossfamily": {
+        "leaks": 297,
+        "n": 500,
+        "vs_threshold_fixed": 2,
+        "vs_threshold_broken": 54,
+        "p_better_than_threshold": 0.9999999999999992,
+        "p_worse_than_threshold": 2.2162827129079687e-14
+      }
+    },
+    "stat+memory": {
+      "rules": 10,
+      "generations": 8,
+      "accepted": 2,
+      "fp": 3,
+      "n_clean": 1075,
+      "fresh": {
+        "leaks": 274,
+        "n": 500,
+        "vs_threshold_fixed": 0,
+        "vs_threshold_broken": 69,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 1.6940658945086007e-21
+      },
+      "crossfamily": {
+        "leaks": 305,
+        "n": 500,
+        "vs_threshold_fixed": 0,
+        "vs_threshold_broken": 60,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 8.673617379884035e-19
+      }
+    }
+  },
+  "compare": "gates",
+  "max_new_fp": 5,
+  "spend": {
+    "threshold": "estimated spend $0.14 (NVIDIA-Nemotron-3-Super-120B-A12B 49,699 in / 51,393 out)",
+    "threshold+memory": "estimated spend $0.21 (NVIDIA-Nemotron-3-Super-120B-A12B 101,886 in / 74,236 out)",
+    "stat": "estimated spend $0.28 (Deepseek-V4-Flash 3,898 in / 589 out; NVIDIA-Nemotron-3-Super-120B-A12B 96,672 in / 99,808 out)",
+    "stat+memory": "estimated spend $0.16 (NVIDIA-Nemotron-3-Super-120B-A12B 79,741 in / 56,292 out)"
+  }
+}

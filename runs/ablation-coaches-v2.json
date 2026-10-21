@@ -1,0 +1,106 @@
+{
+  "generations": 6,
+  "train": 180,
+  "val": 60,
+  "arms": {
+    "start (gen-0)": {
+      "rules": 4,
+      "generations": 0,
+      "accepted": 0,
+      "fp": 3,
+      "n_clean": 1075,
+      "fresh": {
+        "leaks": 380,
+        "n": 500,
+        "vs_threshold_fixed": 0,
+        "vs_threshold_broken": 193,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 7.965459555662261e-59
+      },
+      "crossfamily": {
+        "leaks": 394,
+        "n": 500,
+        "vs_threshold_fixed": 0,
+        "vs_threshold_broken": 179,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 1.305060893599705e-54
+      }
+    },
+    "coach: Nemotron 3 Super": {
+      "rules": 13,
+      "generations": 8,
+      "accepted": 3,
+      "fp": 3,
+      "n_clean": 1075,
+      "fresh": {
+        "leaks": 187,
+        "n": 500,
+        "vs_threshold_fixed": 0,
+        "vs_threshold_broken": 0,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 1.0
+      },
+      "crossfamily": {
+        "leaks": 215,
+        "n": 500,
+        "vs_threshold_fixed": 0,
+        "vs_threshold_broken": 0,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 1.0
+      }
+    },
+    "coach: gpt-oss-120b": {
+      "rules": 6,
+      "generations": 8,
+      "accepted": 1,
+      "fp": 3,
+      "n_clean": 1075,
+      "fresh": {
+        "leaks": 349,
+        "n": 500,
+        "vs_threshold_fixed": 11,
+        "vs_threshold_broken": 173,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 6.578653766830975e-39
+      },
+      "crossfamily": {
+        "leaks": 366,
+        "n": 500,
+        "vs_threshold_fixed": 9,
+        "vs_threshold_broken": 160,
+        "p_better_than_threshold": 1.0,
+        "p_worse_than_threshold": 3.5306280819782353e-37
+      }
+    },
+    "coach: DeepSeek V4 Pro": {
+      "rules": 15,
+      "generations": 8,
+      "accepted": 2,
+      "fp": 5,
+      "n_clean": 1075,
+      "fresh": {
+        "leaks": 211,
+        "n": 500,
+        "vs_threshold_fixed": 38,
+        "vs_threshold_broken": 62,
+        "p_better_than_threshold": 0.9939835121373183,
+        "p_worse_than_threshold": 0.010489367838925859
+      },
+      "crossfamily": {
+        "leaks": 236,
+        "n": 500,
+        "vs_threshold_fixed": 32,
+        "vs_threshold_broken": 53,
+        "p_better_than_threshold": 0.9917455889857324,
+        "p_worse_than_threshold": 0.01472818089288944
+      }
+    }
+  },
+  "compare": "coaches",
+  "max_new_fp": 5,
+  "spend": {
+    "coach: Nemotron 3 Super": "estimated spend $0.22 (NVIDIA-Nemotron-3-Super-120B-A12B 91,875 in / 81,461 out)",
+    "coach: gpt-oss-120b": "estimated spend $0.01 (gpt-oss-120b 41,799 in / 20,360 out)",
+    "coach: DeepSeek V4 Pro": "estimated spend $0.15 (DeepSeek-V4-Pro 56,896 in / 13,787 out)"
+  }
+}
