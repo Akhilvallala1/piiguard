@@ -120,6 +120,7 @@
     }
   },
   "compare": "gates",
+  "max_new_fp": null,
   "spend": {
     "threshold": "n/a",
     "threshold+memory": "n/a",

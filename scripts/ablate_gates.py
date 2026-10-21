@@ -92,7 +92,7 @@ def make_arm(base: Path, slug: str, train, val) -> Path:
 
 def run_arm(path: Path, cfg: dict, generations: int, log):
     cmd = [sys.executable, "-m", "piiguard.cli", "improve", "--generations", str(generations), "--data", "data/ablation-train",
-           "--gate", cfg["gate"], "--clean", cfg["clean"]]
+           "--gate", cfg["gate"], "--clean", cfg["clean"], "--max-new-fp", str(cfg.get("max_new_fp", 0))]
     if not cfg["memory"]:
         cmd.append("--no-memory")
     if cfg.get("coach"):
@@ -128,8 +128,12 @@ def main():
     ap.add_argument("--workdir", default=str(ROOT.parent / "ablation-gates"))
     ap.add_argument("--score-only", action="store_true")
     ap.add_argument("--compare", default="gates", choices=["gates", "coaches"])
+    ap.add_argument("--max-new-fp", type=int, default=None, help="override the stat gate's new-false-positive tolerance for every arm")
     a = ap.parse_args()
-    arms = ARMS if a.compare == "gates" else COACH_ARMS
+    arms = {k: dict(v) for k, v in (ARMS if a.compare == "gates" else COACH_ARMS).items()}
+    if a.max_new_fp is not None:
+        for v in arms.values():
+            v["max_new_fp"] = a.max_new_fp
     base = Path(a.workdir)
     base.mkdir(parents=True, exist_ok=True)
     log = lambda s: print(s, file=sys.stderr, flush=True)
@@ -164,8 +168,10 @@ def main():
                       "p_better_than_threshold": mcnemar(fixed, broken), "p_worse_than_threshold": mcnemar(broken, fixed)}
         report["arms"][name] = row
     report["compare"] = a.compare
+    report["max_new_fp"] = a.max_new_fp
     report["spend"] = {name: _arm_spend(paths[name]) for name in arms}
-    (ROOT / "runs" / f"ablation-{a.compare}.json").write_text(json.dumps(report, indent=2))
+    tag = Path(a.workdir).name.removeprefix("ablation-")
+    (ROOT / "runs" / f"ablation-{tag}.json").write_text(json.dumps(report, indent=2))
     print(render(report))
 
 
