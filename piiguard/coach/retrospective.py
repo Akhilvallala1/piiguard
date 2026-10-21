@@ -60,7 +60,7 @@ _TRAILING_COMMA = re.compile(r",(\s*[}\]])")
 
 
 def _repair_json(blob: str) -> str:
-    """Fix what LLMs reliably get wrong in JSON: regex escapes like \d and trailing commas.
+    r"""Fix what LLMs reliably get wrong in JSON: regex escapes like \d and trailing commas.
     \b is a legal JSON escape (backspace), so a regex word boundary survives as 0x08; _unbackspace restores it."""
     fixed = _ESCAPE_PAIR.sub(lambda m: m.group(0) if m.group(1) else chr(92) * 2, blob)
     fixed = _TRAILING_COMMA.sub(r"\1", fixed)

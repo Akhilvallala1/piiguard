@@ -1,7 +1,20 @@
 [project]
 name = "piiguard"
 version = "0.1.0"
-description = "Self-hardening PII leak guard for sandboxed AI agents (Recursive Agents Hackathon, 2026-10-17)"
+description = "Self-hardening PII leak guard for AI agents: reversible redaction proxy with gated, auditable rule evolution"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Akhil Vallala", email = "akhilvallala0115@gmail.com" }]
+keywords = ["pii", "redaction", "llm", "guardrails", "ai-agents", "privacy", "data-loss-prevention"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Security",
+]
 requires-python = ">=3.11"
 dependencies = [
   "openai>=1.50",

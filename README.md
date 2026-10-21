@@ -1,6 +1,25 @@
 # piiguard: a PII leak guard that hardens itself
 
-**Recursive Agents Hackathon, San Francisco, 2026-10-17. Theme: Version N+1.**
+[![CI](https://github.com/Akhilvallala1/piiguard/actions/workflows/ci.yml/badge.svg)](https://github.com/Akhilvallala1/piiguard/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
+**A content layer for AI agent egress, plus a learnable rule layer for the organization-specific identifiers
+(claim numbers, badge ids, record numbers) that off-the-shelf PII detectors do not know about.** Every improvement
+is a reviewed git diff of plain YAML, accepted only if it lowers leaks on data the learner never saw.
+
+**At a glance (honest version):**
+
+- **Where it wins:** structured identifiers. On NVIDIA's public Nemotron-PII test split, rules + classifier catch
+  92.8% of structured identifier spans vs 68.5% for Microsoft Presidio's defaults.
+- **Where it does not:** semantic PII (names, places, companies). On all Nemotron-PII labels Presidio leads
+  (65.9% vs 58.3% entity recall). Names are caught only with the classifier on.
+- **Learning is offline and gated, by design.** Nothing learns from live traffic; a batch loop proposes rule
+  changes, a gate accepts or rejects them, and accepted changes are tagged commits you can review and roll back.
+- **Sample sizes are small.** Adversarial held-out sets are 20-30 attacks from our own generator, so treat those
+  leak rates as directional. Larger, externally generated evaluations are on the [roadmap](#roadmap).
+- **The classifier is a remote model call** (Nemotron on Crusoe). A local detector option is on the roadmap.
+
+Origin: built at the Recursive Agents Hackathon (San Francisco, 2026-10-17) and developed since.
 
 Sandboxes like NVIDIA NemoClaw / OpenShell decide *where* an agent may send bytes.
 They do not look at *what* is in the bytes. An agent with a perfectly reasonable egress policy
@@ -22,8 +41,8 @@ piiguard is the missing content layer, and it is built to get better on its own:
    traffic do not rise. Accepted changes are committed and tagged `gen-N`; rejected ones are reverted and logged.
 5. **Score** is the leak rate on a *held-out* attack set the coach never sees, generation 0 versus generation N.
 
-Everything in this repository was written during the event. The design is informed by an earlier,
-unrelated guardrail project by the same author, but no code was reused.
+The core was written during the hackathon. The design is informed by an earlier, unrelated guardrail
+project by the same author, but no code was reused.
 
 ## A worked example: an insurance claims assistant
 
@@ -352,3 +371,19 @@ runs/                                history.jsonl, report.json, proxy-events.js
   uses one token namespace per request, binds to loopback by default, and refuses a non-loopback bind
   without an explicit token. Tokens are compared in constant time.
 - All seed PII is synthetic: never-issued 9xx SSNs, 555-01xx phones, public card test numbers, example.com emails.
+
+## Roadmap
+
+Tracked as [GitHub issues](https://github.com/Akhilvallala1/piiguard/issues). In order:
+
+1. **Trust:** license, CI, packaging, README that matches the code. *(done)*
+2. **Local first:** a local base detector (Presidio or GLiNER-PII) so no raw text leaves the host to be classified;
+   learned rules exported as Presidio recognizers and as a NeMo Guardrails action.
+3. **Evaluation that holds up:** held-out sets of 300+ with confidence intervals, a red team from a different model
+   family than the coach, external attack sets, unseen identifier formats, a larger clean corpus for false positives,
+   partial-leak scoring, a statistical gate, and ablations.
+4. **Write-up:** a technical report on gated, auditable rule evolution for PII guards.
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE).
