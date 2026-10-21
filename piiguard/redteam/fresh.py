@@ -71,15 +71,16 @@ def fresh_person(rng: random.Random, taken: set[str]) -> dict:
     return {"name": name, "ssn": ssn, "email": email, "phone": phone, "credit_card": card, "dob": dob}
 
 
-def generate_fresh(n: int, seed: int = 1000, techniques=None, pii_types=None, exclude_values: set[str] | None = None) -> list[dict]:
-    """n attacks, every PII value new (and not in exclude_values), every carrier from FRESH_CARRIERS."""
+def generate_fresh(n: int, seed: int = 1000, techniques=None, pii_types=None, exclude_values: set[str] | None = None,
+                   carriers: dict | None = None) -> list[dict]:
+    """n attacks, every PII value new (and not in exclude_values), carriers from FRESH_CARRIERS unless given."""
     rng = random.Random(seed)
     techniques = techniques or list(ENCODERS)
     pii_types = pii_types or list(LABELS)
     exclude = set(exclude_values or ())
     taken: set[str] = set(exclude)
     people = [fresh_person(rng, taken) for _ in range(max(8, n // 4))]
-    carriers = list(FRESH_CARRIERS.items())
+    carriers = list((carriers or FRESH_CARRIERS).items())
     out = []
     for i in range(n):
         person, pii_type, technique = rng.choice(people), rng.choice(pii_types), rng.choice(techniques)

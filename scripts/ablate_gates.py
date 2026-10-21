@@ -56,13 +56,15 @@ def _sh(*args, cwd):
 
 
 def training_set(seed: int = 777) -> tuple[list[dict], list[dict]]:
-    """Fresh-value train/val, disjoint from every held-out value."""
+    """Fresh-value train/val, disjoint from every held-out value, wrapped in the ORIGINAL carrier templates so that
+    neither held-out set shares carriers with training (fresh uses FRESH_CARRIERS, cross-family uses model text)."""
+    from piiguard.redteam.generator import CARRIERS
     seen = {v for p in SEED_PEOPLE for v in p.values()}
     for d in ("attacks-fresh", "attacks-crossfamily"):
         p = ROOT / "data" / d / "heldout.jsonl"
         if p.exists():
             seen |= {a["plain_value"] for a in load_jsonl(p)}
-    rows = generate_fresh(240, seed=seed, exclude_values=seen)
+    rows = generate_fresh(240, seed=seed, exclude_values=seen, carriers=CARRIERS)
     return rows[:180], rows[180:]
 
 
