@@ -274,12 +274,13 @@ def cmd_report(a):
 
 def cmd_serve(a):
     import uvicorn
-    from .proxy import create_app, resolve_serve_config
+    from .proxy import OpenAICompatibleUpstream, create_app, resolve_serve_config
     cfg = resolve_serve_config(a.host, os.environ.get("GUARD_PROXY_TOKEN"))
     if cfg.generated:
         print(f"GUARD_PROXY_TOKEN not set; using one-off token: {cfg.token}", file=sys.stderr)
-    app = create_app(token=cfg.token, classifier=_clf(a))
-    print(f"piiguard proxy on http://{cfg.host}:{a.port}  (local detector: {a.detector}, remote llm classifier: {'on' if a.llm else 'off'})", file=sys.stderr)
+    up = OpenAICompatibleUpstream(url=a.upstream)
+    app = create_app(upstream=up, token=cfg.token, classifier=_clf(a), model_allowlist=a.allow_model or None)
+    print(f"piiguard proxy on http://{cfg.host}:{a.port} -> {up.base}  (local detector: {a.detector}, remote llm classifier: {'on' if a.llm else 'off'})", file=sys.stderr)
     uvicorn.run(app, host=cfg.host, port=a.port, log_level="warning")
 
 
@@ -296,8 +297,10 @@ def cmd_middleware(a):
     elif a.host not in ("127.0.0.1", "localhost", "::1") and not a.allow_insecure:
         print(f"refusing to bind {a.host} without --jwt-key; pass --allow-insecure for a trusted local network", file=sys.stderr)
         raise SystemExit(2)
+    from .proxy import model_allowlist_from_env
     guard = Guard.from_dir(ROOT / "guard", _clf(a))
-    serve(guard, a.host, a.port, tls_cert=a.tls_cert, tls_key=a.tls_key, auth=auth, name=a.name, max_payload_bytes=a.max_payload_bytes)
+    serve(guard, a.host, a.port, tls_cert=a.tls_cert, tls_key=a.tls_key, auth=auth, name=a.name, max_payload_bytes=a.max_payload_bytes,
+          model_allowlist=model_allowlist_from_env())
 
 
 def main(argv=None):
@@ -331,7 +334,7 @@ def main(argv=None):
 
     s = sub.add_parser("report", help="print generation history and held-out before/after"); s.add_argument("--markdown", action="store_true"); s.set_defaults(fn=cmd_report)
 
-    s = sub.add_parser("serve", help="run the guard proxy"); s.add_argument("--host", default="127.0.0.1", help="use 0.0.0.0 (with GUARD_PROXY_TOKEN set) so a NemoClaw sandbox can reach it"); s.add_argument("--port", type=int, default=8787); s.add_argument("--llm", action="store_true", help="add the remote Nemotron classifier (sends text to Crusoe)"); s.add_argument("--detector", default="none", choices=["none", "presidio", "gliner", "gliner-broad"], help="local base detector; runs on this host"); s.set_defaults(fn=cmd_serve)
+    s = sub.add_parser("serve", help="run the guard proxy"); s.add_argument("--host", default="127.0.0.1", help="use 0.0.0.0 (with GUARD_PROXY_TOKEN set) so a NemoClaw sandbox can reach it"); s.add_argument("--port", type=int, default=8787); s.add_argument("--upstream", default=None, help="OpenAI-compatible base URL to forward to, e.g. https://api.openai.com/v1 or http://127.0.0.1:11434/v1 (default: $PIIGUARD_UPSTREAM_URL, then Crusoe); key from $PIIGUARD_UPSTREAM_KEY"); s.add_argument("--allow-model", action="append", default=[], metavar="MODEL", help="model id the agent may name; repeatable (default: $PIIGUARD_MODEL_ALLOWLIST, then the Nemotron defaults)"); s.add_argument("--llm", action="store_true", help="add the remote Nemotron classifier (sends text to Crusoe)"); s.add_argument("--detector", default="none", choices=["none", "presidio", "gliner", "gliner-broad"], help="local base detector; runs on this host"); s.set_defaults(fn=cmd_serve)
 
     s = sub.add_parser("middleware", help="run the guard as an OpenShell supervisor middleware (gRPC, RFC 0009)"); s.add_argument("--host", default="127.0.0.1"); s.add_argument("--port", type=int, default=50051); s.add_argument("--name", default="piiguard", help="registration name used in gateway TOML and policy"); s.add_argument("--llm", action="store_true", help="add the remote Nemotron classifier (sends text to Crusoe)"); s.add_argument("--detector", default="none", choices=["none", "presidio", "gliner", "gliner-broad"], help="local base detector; runs on this host"); s.add_argument("--max-payload-bytes", type=int, default=1 << 20); s.add_argument("--gateway-id", default=None); s.add_argument("--audience", default=None, help="defaults to urn:openshell:extension:middleware:<name>"); s.add_argument("--jwt-key", default=None, help="gateway signing public key (PEM) or JWKS JSON file"); s.add_argument("--tls-cert", default=None); s.add_argument("--tls-key", default=None); s.add_argument("--allow-insecure", action="store_true", help="bind a non-loopback host with no token check"); s.set_defaults(fn=cmd_middleware)
 
