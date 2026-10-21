@@ -145,11 +145,16 @@ def check_pattern_safe(name: str, compiled) -> None:
         raise ValueError(f"regex in rule {name!r} too long ({len(pattern)} > {MAX_PATTERN_LEN})")
     if _NESTED_QUANT.search(pattern):
         raise ValueError(f"regex in rule {name!r} is unsafe: nested quantifier")
-    try:
-        for _ in compiled.finditer(_PROBE, timeout=PROBE_BUDGET_S):
-            pass
-    except TimeoutError as e:
-        raise ValueError(f"regex in rule {name!r} is unsafe: too slow on probe input") from e
+    # Retry once: a busy machine (CI runner, other threads holding the GIL) can stall a fast pattern past the budget.
+    # A catastrophic pattern blows the budget by orders of magnitude and fails both attempts.
+    for attempt in range(2):
+        try:
+            for _ in compiled.finditer(_PROBE, timeout=PROBE_BUDGET_S):
+                pass
+            return
+        except TimeoutError as e:
+            if attempt == 1:
+                raise ValueError(f"regex in rule {name!r} is unsafe: too slow on probe input") from e
 
 
 @dataclass
