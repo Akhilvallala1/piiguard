@@ -46,6 +46,11 @@ def main():
         rows.append(f"\n{d['n_records']} records, {d['n_entities']} labeled spans, {len(d['domains'])} domains, locale us, seed 7."
                     + (f" Structured identifiers: {next(iter(d['systems'].values())).get('n_hard', '?')} spans ({', '.join(next(iter(d['systems'].values())).get('hard_labels', [])[:12])}{'…' if len(next(iter(d['systems'].values())).get('hard_labels', [])) > 12 else ''})." if next(iter(d['systems'].values())).get('hard_labels') else ""))
         text = section("external", "\n".join(rows), text)
+    rig = ROOT / "runs" / "rigorous.json"
+    if rig.exists():
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from eval_rigorous import render
+        text = section("rigorous", render(json.loads(rig.read_text())), text)
     README.write_text(text)
     print("README updated")
 

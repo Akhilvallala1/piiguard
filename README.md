@@ -16,12 +16,15 @@ is a reviewed git diff of plain YAML, accepted only if it lowers leaks on data t
   (65.9% vs 63.0% entity recall for the best local configuration).
 - **Learning is offline and gated, by design.** Nothing learns from live traffic; a batch loop proposes rule
   changes, a gate accepts or rejects them, and accepted changes are tagged commits you can review and roll back.
-- **Sample sizes are small.** Adversarial held-out sets are 20-30 attacks from our own generator, so treat those
-  leak rates as directional. Larger, externally generated evaluations are on the [roadmap](#roadmap).
+- **Measured on values it never saw.** The original 30-attack held-out set reuses the training people (29 of 30
+  values appear in train). On 500 fresh attacks with new values and new carrier formats, the learned rules leak
+  25.6% [22.0, 29.6] against 76.0% for the hand-written gen-0 rules: 252 attacks fixed, 0 broken, p<0.001.
+  That is a real, significant learning effect, but it is weaker than the 16.7% the small set suggested.
+  See [Evaluation on unseen values](#evaluation-on-unseen-values).
 - **Local first.** `--detector gliner` (or `presidio`) adds a base detector that runs on this host. The remote
   Nemotron classifier (`--llm`) is optional and is the only path that sends text off the machine.
-- **The tradeoff is real.** `gliner-broad` gets the structured-id recall above but flags 24% of clean samples;
-  the default `gliner` preset flags 4% and leaves structured ids to the learned rules.
+- **The tradeoff is real.** On 1,075 clean samples the learned rules flag 0.3%, adding local Presidio 5.1%, and
+  adding local GLiNER-PII 15.4%. The 4% measured on the original 25 clean samples was too optimistic.
 
 Origin: built at the Recursive Agents Hackathon (San Francisco, 2026-10-17) and developed since.
 
@@ -117,6 +120,53 @@ the coach evolves. The **Nemotron 3.5 Lightning classifier** is the expensive sa
 second and a model call per request). Read the table as: how far can the free layer get on its own, and what
 does the paid layer add. Over time the coach moves the free layer toward what the paid layer catches, which is
 the whole point of the loop.
+
+### Evaluation on unseen values
+
+The numbers above come from the original split, where held-out attacks reuse the same eight synthetic people (and so
+the same SSNs, phones and cards) as training, and the same ten carrier templates. That makes memorizing a value look
+like generalizing. `scripts/eval_rigorous.py` re-scores every system on data the loop never touched:
+
+- **500 fresh attacks** (`data/attacks-fresh/heldout.jsonl`, `piiguard/redteam/fresh.py`): new people, new values,
+  and ten new carrier formats (SQL, YAML, CSV, GraphQL, stack traces, HTTP headers, transcripts). Every value sits in
+  a never-issued or fiction-reserved range. No value overlaps training, which a test checks.
+- **1,075 clean samples** (`piiguard/eval/clean_corpus.py`): the 25 hand-written hard negatives plus 1,050 generated
+  ones such as logs, UUIDs, hashes, base64 cache keys, 16-digit tracking numbers, barcodes and coordinates.
+- **Partial leaks** (`leak_kind`): beyond the exact encoded form, a leak also counts if the plain value or its
+  separator-free core survives, or if an SSN or card's last four digits survive on their own.
+- **95% Wilson intervals** on every rate, and **exact one-sided McNemar tests** on paired outcomes.
+
+<!-- rigorous:start -->
+| system | strict leak (n=500) | any leak, incl. partial | false positives (n=1075) | ms/text |
+|---|---|---|---|---|
+| Microsoft Presidio (default recognizers) | 51.8% [47.4%, 56.1%] | 52.0% [47.6%, 56.3%] | 45.7% [42.7%, 48.7%] | 4 |
+| Microsoft Presidio (scoped: SSN, email, phone, card) | 76.0% [72.1%, 79.5%] | 76.0% [72.1%, 79.5%] | 2.0% [1.3%, 3.0%] | 3 |
+| piiguard gen-0 rules (hand-written) | 76.0% [72.1%, 79.5%] | 76.0% [72.1%, 79.5%] | 0.3% [0.1%, 0.8%] | 0 |
+| piiguard gen-23 rules (learned, no model) | 25.6% [22.0%, 29.6%] | 26.2% [22.5%, 30.2%] | 0.3% [0.1%, 0.8%] | 0 |
+| piiguard gen-23 rules + local presidio | 20.2% [16.9%, 23.9%] | 20.8% [17.5%, 24.6%] | 5.1% [4.0%, 6.6%] | 4 |
+| piiguard gen-23 rules + local gliner | 10.0% [7.7%, 12.9%] | 10.2% [7.8%, 13.2%] | 15.4% [13.4%, 17.7%] | 146 |
+
+Learning effect, gen-0 to learned rules, on these unseen values: fixed 252, broke 0, one-sided exact McNemar p <0.001. Brackets are 95% Wilson intervals.
+<!-- rigorous:end -->
+
+What this changes:
+
+- **Learning helps a lot.** gen-0 to gen-23 fixed 252 of the 500 unseen attacks and broke none.
+- **The small set overstated it.** On fresh values the learned rules leak about 26%, not 17%. The weakest
+  techniques are non-breaking separators (15 of 17 leak), reversed values (23 of 34) and split lines (27 of 43).
+  These are the coach's next targets.
+- **There is a precision cost.** Every detector added on top lowers leaks and raises false positives. GLiNER-PII
+  cuts leaks to 10% but flags 15% of clean traffic, mostly "aisle 5" as a street address and large counts as phone
+  numbers. Pick by deployment: an egress guard that can tolerate over-redaction wants the detector, while a logging
+  pipeline probably wants rules only.
+- **Presidio scoped to the same types** leaks 76% with 2.0% false positives. That is the same leak rate as gen-0 and
+  three times worse than the learned rules.
+
+The loop can now gate on this kind of evidence: `piiguard improve --gate stat` accepts a proposal only if it fixes
+significantly more validation attacks than it breaks (exact McNemar, `--alpha 0.05`) and newly flags no more than
+`--max-new-fp` clean samples. `--clean large` uses the 1,075-sample corpus. On a 30-attack validation set, the old
+5-point threshold accepts a change that fixes 2 attacks (p=0.25). The statistical gate needs 5 or more fixes with
+none broken.
 
 ### External check: NVIDIA Nemotron-PII (data we did not make)
 
@@ -423,9 +473,9 @@ Tracked as [GitHub issues](https://github.com/Akhilvallala1/piiguard/issues). In
 2. **Local first:** a local base detector (Presidio or GLiNER-PII) so no raw text leaves the host to be classified
    *(done: `--detector`)*; learned rules exported as Presidio recognizers and as a NeMo Guardrails config
    *(done: `piiguard export`)*.
-3. **Evaluation that holds up:** held-out sets of 300+ with confidence intervals, a red team from a different model
-   family than the coach, external attack sets, unseen identifier formats, a larger clean corpus for false positives,
-   partial-leak scoring, a statistical gate, and ablations.
+3. **Evaluation that holds up:** fresh-value held-out set (n=500), 1,075-sample clean corpus, partial-leak scoring,
+   Wilson intervals, McNemar tests and a statistical gate *(done)*. Still open: a red team from a different model
+   family than the coach, external attack sets, unseen identifier formats, and ablations.
 4. **Write-up:** a technical report on gated, auditable rule evolution for PII guards.
 
 ## License

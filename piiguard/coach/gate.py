@@ -23,6 +23,29 @@ def decide(before: dict, after: dict, min_leak_delta: float = 0.05, max_fp_incre
     return Decision(True, f"accepted: leak rate down {leak_delta:.2f}, false positives moved {fp_delta:+.2f}", leak_delta, fp_delta)
 
 
+def decide_paired(before_leaked: list[bool], after_leaked: list[bool], before_fp: list[bool], after_fp: list[bool],
+                  alpha: float = 0.05, max_new_fp: int = 0) -> Decision:
+    """Statistical gate: accept only if the candidate leaks on significantly fewer of the *same* attacks (one-sided
+    exact McNemar, p < alpha) and flags at most max_new_fp clean samples the incumbent did not.
+
+    The threshold gate asks "did the rate drop 5 points"; on 30 attacks that is 1.5 attacks, well inside noise. This
+    gate asks whether the improvement is distinguishable from chance on paired outcomes, which is the right question
+    when both guards see identical inputs."""
+    from ..eval.stats import mcnemar, paired_counts
+    fixed, broken = paired_counts(before_leaked, after_leaked)
+    new_fp = sum(1 for b, a in zip(before_fp, after_fp) if a and not b)  # clean samples newly flagged
+    n, m = max(1, len(before_leaked)), max(1, len(before_fp))
+    leak_delta = (sum(before_leaked) - sum(after_leaked)) / n
+    fp_delta = (sum(after_fp) - sum(before_fp)) / m
+    p = mcnemar(fixed, broken)
+    stats = f"fixed {fixed}, broke {broken}, p={p:.3g}"
+    if new_fp > max_new_fp:
+        return Decision(False, f"rejected: {new_fp} new false positive(s) on clean traffic (limit {max_new_fp}); {stats}", leak_delta, fp_delta)
+    if p >= alpha:
+        return Decision(False, f"rejected: improvement not significant ({stats}, need p<{alpha})", leak_delta, fp_delta)
+    return Decision(True, f"accepted: {stats}, new false positives {new_fp}", leak_delta, fp_delta)
+
+
 import subprocess
 from pathlib import Path
 

@@ -1,0 +1,84 @@
+{
+  "n_attacks": 500,
+  "n_clean": 1075,
+  "reference": "piiguard gen-23 rules (learned, no model)",
+  "systems": {
+    "Microsoft Presidio (default recognizers)": {
+      "strict_leaks": 259,
+      "any_leaks": 260,
+      "fps": 491,
+      "ms": 3.5,
+      "vs_reference": {
+        "fixed": 73,
+        "broken": 204,
+        "p_better": 0.9999999999999997,
+        "p_worse": 8.287262301356937e-16
+      }
+    },
+    "Microsoft Presidio (scoped: SSN, email, phone, card)": {
+      "strict_leaks": 380,
+      "any_leaks": 380,
+      "fps": 21,
+      "ms": 3.2,
+      "vs_reference": {
+        "fixed": 30,
+        "broken": 282,
+        "p_better": 1.0,
+        "p_worse": 7.989433302512533e-53
+      }
+    },
+    "piiguard gen-0 rules (hand-written)": {
+      "strict_leaks": 380,
+      "any_leaks": 380,
+      "fps": 3,
+      "ms": 0.0,
+      "vs_reference": {
+        "fixed": 0,
+        "broken": 252,
+        "p_better": 1.0,
+        "p_worse": 1.3817869688151111e-76
+      }
+    },
+    "piiguard gen-23 rules (learned, no model)": {
+      "strict_leaks": 128,
+      "any_leaks": 131,
+      "fps": 3,
+      "ms": 0.1,
+      "vs_reference": {
+        "fixed": 0,
+        "broken": 0,
+        "p_better": 1.0,
+        "p_worse": 1.0
+      }
+    },
+    "piiguard gen-23 rules + local presidio": {
+      "strict_leaks": 101,
+      "any_leaks": 104,
+      "fps": 55,
+      "ms": 3.7,
+      "vs_reference": {
+        "fixed": 27,
+        "broken": 0,
+        "p_better": 7.450580596923828e-09,
+        "p_worse": 1.0
+      }
+    },
+    "piiguard gen-23 rules + local gliner": {
+      "strict_leaks": 50,
+      "any_leaks": 51,
+      "fps": 166,
+      "ms": 146.5,
+      "vs_reference": {
+        "fixed": 78,
+        "broken": 0,
+        "p_better": 3.308722450212111e-24,
+        "p_worse": 1.0
+      }
+    }
+  },
+  "learning_effect": {
+    "fixed": 252,
+    "broken": 0,
+    "p": 1.3817869688151111e-76
+  }
+}

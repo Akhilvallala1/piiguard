@@ -29,6 +29,15 @@ def _clf(a):
     return _classifier(getattr(a, "llm", False), getattr(a, "detector", "none"))
 
 
+def _clean_set(a) -> list[str]:
+    """The 25 hand-written hard negatives, or those plus the generated 1,050-sample corpus."""
+    from .eval.harness import CLEAN_SAMPLES
+    if getattr(a, "clean", "small") == "large":
+        from .eval.clean_corpus import generate_clean
+        return list(CLEAN_SAMPLES) + generate_clean()
+    return list(CLEAN_SAMPLES)
+
+
 def _load_sets(data: Path):
     from .eval.datasets import load_jsonl
     return {name: load_jsonl(data / f"{name}.jsonl") for name in ("train", "val", "heldout")}
@@ -124,8 +133,9 @@ def cmd_improve(a):
     start = a.start_gen
     records = []
     for gen in range(start, start + a.generations):
-        rec = run_generation(ROOT, gen, sets["train"], sets["val"], CLEAN_SAMPLES, coach, classifier=clf,
-                             min_leak_delta=a.min_delta, max_fp_increase=a.max_fp, log=log, ledger=ledger)
+        rec = run_generation(ROOT, gen, sets["train"], sets["val"], _clean_set(a), coach, classifier=clf,
+                             min_leak_delta=a.min_delta, max_fp_increase=a.max_fp, log=log, ledger=ledger,
+                             gate=a.gate, alpha=a.alpha, max_new_fp=a.max_new_fp)
         records.append(rec)
         if rec["train_before"]["leak_rate"] == 0.0:
             log("no misses left on train; stopping early")
@@ -294,7 +304,7 @@ def main(argv=None):
 
     s = sub.add_parser("eval", help="evaluate current guard"); s.add_argument("--data", default=str(DATA)); s.add_argument("--set", default="heldout", choices=["train", "val", "heldout"]); s.add_argument("--llm", action="store_true", help="add the remote Nemotron classifier (sends text to Crusoe)"); s.add_argument("--detector", default="none", choices=["none", "presidio", "gliner", "gliner-broad"], help="local base detector; runs on this host"); s.add_argument("--json", action="store_true"); s.add_argument("--show-misses", action="store_true"); s.set_defaults(fn=cmd_eval)
 
-    s = sub.add_parser("improve", help="run N self-improvement generations"); s.add_argument("--generations", type=int, default=5); s.add_argument("--start-gen", type=int, default=1); s.add_argument("--baseline-tag", default="gen-0"); s.add_argument("--no-memory", action="store_true", help="disable the shape ledger (regression gate + coach precedents)"); s.add_argument("--data", default=str(DATA)); s.add_argument("--llm", action="store_true", help="add the remote Nemotron classifier (sends text to Crusoe)"); s.add_argument("--detector", default="none", choices=["none", "presidio", "gliner", "gliner-broad"], help="local base detector; runs on this host"); s.add_argument("--min-delta", type=float, default=0.05); s.add_argument("--max-fp", type=float, default=0.05); s.set_defaults(fn=cmd_improve)
+    s = sub.add_parser("improve", help="run N self-improvement generations"); s.add_argument("--generations", type=int, default=5); s.add_argument("--start-gen", type=int, default=1); s.add_argument("--baseline-tag", default="gen-0"); s.add_argument("--no-memory", action="store_true", help="disable the shape ledger (regression gate + coach precedents)"); s.add_argument("--data", default=str(DATA)); s.add_argument("--llm", action="store_true", help="add the remote Nemotron classifier (sends text to Crusoe)"); s.add_argument("--detector", default="none", choices=["none", "presidio", "gliner", "gliner-broad"], help="local base detector; runs on this host"); s.add_argument("--min-delta", type=float, default=0.05); s.add_argument("--max-fp", type=float, default=0.05); s.add_argument("--gate", default="threshold", choices=["threshold", "stat"], help="stat: exact McNemar on paired validation outcomes"); s.add_argument("--alpha", type=float, default=0.05); s.add_argument("--max-new-fp", type=int, default=0, help="stat gate: clean samples a candidate may newly flag"); s.add_argument("--clean", default="small", choices=["small", "large"], help="large: add the 1,050-sample generated hard-negative corpus"); s.set_defaults(fn=cmd_improve)
 
     s = sub.add_parser("bench", help="compare systems on the same held-out data (Presidio, gen-0, current, +LLM)"); s.add_argument("--data", default=str(DATA)); s.add_argument("--set", default="heldout", choices=["train", "val", "heldout"]); s.add_argument("--baseline-tag", default="gen-0"); s.add_argument("--llm", action="store_true", help="add the remote Nemotron classifier (sends text to Crusoe)"); s.add_argument("--detector", default="none", choices=["none", "presidio", "gliner", "gliner-broad", "all"], help="add rows for local base detectors on top of the current rules"); s.add_argument("--no-presidio", action="store_true"); s.add_argument("--by-technique", action="store_true"); s.set_defaults(fn=cmd_bench)
 

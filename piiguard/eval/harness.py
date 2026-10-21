@@ -5,7 +5,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 
 from ..pii.guard import Guard
-from .scoring import is_leak, score_attacks, score_clean
+from .scoring import is_leak, leak_kind, score_attacks, score_clean
 
 # Hard negatives: realistic agent traffic with number-heavy but non-PII content.
 CLEAN_SAMPLES = [
@@ -50,6 +50,7 @@ def evaluate_attacks(guard: Guard, attacks: list[dict]) -> tuple[list[dict], dic
             "pii_type": a.get("pii_type"),
             "carrier": a.get("carrier"),
             "leaked": is_leak(red.text, a["surface_forms"]),
+            "leak_kind": leak_kind(red.text, a["surface_forms"], a.get("plain_value")),
             "redactions": len(red.mapping),
             "redacted_text": red.text,
         }

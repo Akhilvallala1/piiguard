@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
-from .coach.gate import GuardRepo, decide
+from .coach.gate import GuardRepo, decide, decide_paired
 from .coach.retrospective import Proposal
 from .eval.harness import evaluate_attacks, evaluate_clean
 from .pii.guard import Classifier, Guard
@@ -15,14 +15,21 @@ CoachFn = Callable[[list[dict], str, str, dict], Proposal]
 
 
 def _scores(guard: Guard, attacks: list[dict], clean: list[str]) -> tuple[dict, dict]:
-    _, a = evaluate_attacks(guard, attacks)
-    _, c = evaluate_clean(guard, clean)
+    a, c, _, _ = _scores_paired(guard, attacks, clean)
     return a, c
+
+
+def _scores_paired(guard: Guard, attacks: list[dict], clean: list[str]):
+    """Scores plus per-item outcomes in input order, for the paired statistical gate."""
+    ar, a = evaluate_attacks(guard, attacks)
+    cr, c = evaluate_clean(guard, clean)
+    return a, c, [bool(r["leaked"]) for r in ar], [r["redactions"] > 0 for r in cr]
 
 
 def run_generation(root: str | Path, gen: int, train: list[dict], val: list[dict], clean: list[str], coach_fn: CoachFn,
                    classifier: Optional[Classifier] = None, min_leak_delta: float = 0.05, max_fp_increase: float = 0.05,
-                   log: Callable[[str], None] = lambda s: None, ledger=None, max_regressions: int = 0) -> dict:
+                   log: Callable[[str], None] = lambda s: None, ledger=None, max_regressions: int = 0,
+                   gate: str = "threshold", alpha: float = 0.05, max_new_fp: int = 0) -> dict:
     root = Path(root)
     repo = GuardRepo(root)
     t0 = time.time()
@@ -31,7 +38,7 @@ def run_generation(root: str | Path, gen: int, train: list[dict], val: list[dict
     train_results, train_scores = evaluate_attacks(guard, train)
     missed = set(train_scores["missed_ids"])
     misses = [a for a in train if a["id"] in missed]
-    val_before, clean_before = _scores(guard, val, clean)
+    val_before, clean_before, val_leaks_before, clean_flags_before = _scores_paired(guard, val, clean)
     log(f"[gen {gen}] train leak {train_scores['leak_rate']:.2f} | val leak {val_before['leak_rate']:.2f} | fp {clean_before['fp_rate']:.2f} | {len(misses)} misses -> coach")
 
     rules_yaml, prompt_md = repo.current_files()
@@ -53,11 +60,14 @@ def run_generation(root: str | Path, gen: int, train: list[dict], val: list[dict
 
     repo.stage(_stamp_version(proposal.rules_yaml, gen), proposal.prompt_md if proposal.prompt_md is not None else prompt_md)
     candidate = Guard.from_dir(repo.guard_dir, classifier)
-    val_after, clean_after = _scores(candidate, val, clean)
+    val_after, clean_after, val_leaks_after, clean_flags_after = _scores_paired(candidate, val, clean)
     fp_examples = _fp_examples(candidate, clean)
-    decision = decide({"leak_rate": val_before["leak_rate"], "fp_rate": clean_before["fp_rate"]},
-                      {"leak_rate": val_after["leak_rate"], "fp_rate": clean_after["fp_rate"]},
-                      min_leak_delta, max_fp_increase)
+    if gate == "stat":
+        decision = decide_paired(val_leaks_before, val_leaks_after, clean_flags_before, clean_flags_after, alpha, max_new_fp)
+    else:
+        decision = decide({"leak_rate": val_before["leak_rate"], "fp_rate": clean_before["fp_rate"]},
+                          {"leak_rate": val_after["leak_rate"], "fp_rate": clean_after["fp_rate"]},
+                          min_leak_delta, max_fp_increase)
     regressions = [e["surface"] for e in ledger.regressions(candidate)] if ledger is not None else []
     if decision.accepted and len(regressions) > max_regressions:
         from .coach.gate import Decision
