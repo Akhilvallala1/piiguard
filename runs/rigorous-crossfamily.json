@@ -1,0 +1,147 @@
+{
+  "set": "crossfamily",
+  "n_attacks": 500,
+  "n_clean": 1075,
+  "reference": "piiguard gen-23 rules (learned, no model)",
+  "systems": {
+    "Microsoft Presidio (default recognizers)": {
+      "strict_leaks": 257,
+      "any_leaks": 265,
+      "fps": 491,
+      "ms": 3.1,
+      "vs_reference": {
+        "fixed": 110,
+        "broken": 149,
+        "p_better": 0.9936066128654568,
+        "p_worse": 0.009022195698628324
+      }
+    },
+    "Microsoft Presidio (scoped: SSN, email, phone, card)": {
+      "strict_leaks": 365,
+      "any_leaks": 365,
+      "fps": 21,
+      "ms": 2.9,
+      "vs_reference": {
+        "fixed": 44,
+        "broken": 191,
+        "p_better": 1.0,
+        "p_worse": 2.5406783173980711e-23
+      }
+    },
+    "piiguard gen-0 rules (hand-written)": {
+      "strict_leaks": 394,
+      "any_leaks": 394,
+      "fps": 3,
+      "ms": 0.0,
+      "vs_reference": {
+        "fixed": 0,
+        "broken": 176,
+        "p_better": 1.0,
+        "p_worse": 1.044048714879764e-53
+      }
+    },
+    "piiguard gen-23 rules (learned, no model)": {
+      "strict_leaks": 218,
+      "any_leaks": 218,
+      "fps": 3,
+      "ms": 0.1,
+      "vs_reference": {
+        "fixed": 0,
+        "broken": 0,
+        "p_better": 1.0,
+        "p_worse": 1.0
+      }
+    },
+    "piiguard gen-23 rules + local presidio": {
+      "strict_leaks": 185,
+      "any_leaks": 191,
+      "fps": 55,
+      "ms": 3.4,
+      "vs_reference": {
+        "fixed": 33,
+        "broken": 0,
+        "p_better": 1.1641532182693481e-10,
+        "p_worse": 1.0
+      }
+    },
+    "piiguard gen-23 rules + local gliner": {
+      "strict_leaks": 111,
+      "any_leaks": 116,
+      "fps": 166,
+      "ms": 136.3,
+      "vs_reference": {
+        "fixed": 107,
+        "broken": 0,
+        "p_better": 6.162975822039155e-33,
+        "p_worse": 1.0
+      }
+    }
+  },
+  "learning_effect": {
+    "fixed": 176,
+    "broken": 0,
+    "p": 1.044048714879764e-53
+  },
+  "by_origin": {
+    "Microsoft Presidio (default recognizers)": {
+      "known encoder": [
+        196,
+        381
+      ],
+      "freeform (model's own technique)": [
+        61,
+        119
+      ]
+    },
+    "Microsoft Presidio (scoped: SSN, email, phone, card)": {
+      "known encoder": [
+        274,
+        381
+      ],
+      "freeform (model's own technique)": [
+        91,
+        119
+      ]
+    },
+    "piiguard gen-0 rules (hand-written)": {
+      "known encoder": [
+        287,
+        381
+      ],
+      "freeform (model's own technique)": [
+        107,
+        119
+      ]
+    },
+    "piiguard gen-23 rules (learned, no model)": {
+      "known encoder": [
+        128,
+        381
+      ],
+      "freeform (model's own technique)": [
+        90,
+        119
+      ]
+    },
+    "piiguard gen-23 rules + local presidio": {
+      "known encoder": [
+        106,
+        381
+      ],
+      "freeform (model's own technique)": [
+        79,
+        119
+      ]
+    },
+    "piiguard gen-23 rules + local gliner": {
+      "known encoder": [
+        52,
+        381
+      ],
+      "freeform (model's own technique)": [
+        59,
+        119
+      ]
+    }
+  }
+}

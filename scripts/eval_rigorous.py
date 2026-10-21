@@ -38,7 +38,9 @@ def run(fn, attacks, clean):
 
 
 def main():
-    attacks = load_jsonl(ROOT / "data" / "attacks-fresh" / "heldout.jsonl")
+    which = os.environ.get("RIGOR_SET", "fresh")
+    path = {"fresh": "attacks-fresh", "crossfamily": "attacks-crossfamily"}[which]
+    attacks = load_jsonl(ROOT / "data" / path / "heldout.jsonl")
     clean = list(CLEAN_SAMPLES) + generate_clean()
     g0 = Guard.from_texts(*GuardRepo(ROOT).files_at("gen-0"))
     gn = Guard.from_dir(ROOT / "guard")
@@ -62,7 +64,7 @@ def main():
     for name, fn in systems.items():
         print(f"running {name} ...", file=sys.stderr, flush=True)
         results[name] = run(fn, attacks, clean)
-    out = {"n_attacks": len(attacks), "n_clean": len(clean), "reference": ref_name, "systems": {}}
+    out = {"set": which, "n_attacks": len(attacks), "n_clean": len(clean), "reference": ref_name, "systems": {}}
     for name, r in results.items():
         ref = results[ref_name]
         fixed, broken = paired_counts(ref["strict"], r["strict"])
@@ -73,9 +75,25 @@ def main():
     # gen-0 -> learned rules: the loop's own claim, now on data it never saw
     f, b = paired_counts(results["piiguard gen-0 rules (hand-written)"]["strict"], results[ref_name]["strict"])
     out["learning_effect"] = {"fixed": f, "broken": b, "p": mcnemar(f, b)}
+    by_tech = {}
+    for name, r in results.items():
+        agg = {}
+        for a, leaked in zip(attacks, r["strict"]):
+            t = "freeform (model's own technique)" if a["technique"].startswith("freeform") else "known encoder"
+            agg.setdefault(t, [0, 0])
+            agg[t][0] += leaked
+            agg[t][1] += 1
+        by_tech[name] = agg
+    out["by_origin"] = by_tech
     (ROOT / "runs").mkdir(exist_ok=True)
-    (ROOT / "runs" / "rigorous.json").write_text(json.dumps(out, indent=2))
+    suffix = "" if which == "fresh" else f"-{which}"
+    (ROOT / "runs" / f"rigorous{suffix}.json").write_text(json.dumps(out, indent=2))
     print(render(out))
+    try:
+        from piiguard.crusoe import METER
+        print(METER.summary(), file=sys.stderr)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _p(p: float) -> str:

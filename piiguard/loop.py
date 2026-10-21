@@ -48,6 +48,9 @@ def run_generation(root: str | Path, gen: int, train: list[dict], val: list[dict
     try:
         proposal = coach_fn(misses, rules_yaml, prompt_md, train_scores)
     except Exception as e:  # noqa: BLE001 - a bad coach turn is a rejected generation, not a crash
+        from .crusoe import BudgetExceeded
+        if isinstance(e, BudgetExceeded):
+            raise
         reason = f"rejected: coach failed to produce a valid proposal ({type(e).__name__}: {str(e)[:160]})"
         log(f"[gen {gen}] {reason}")
         record = {"gen": gen, "accepted": False, "reason": reason, "commit": None, "rationale": "", "n_misses": len(misses),
