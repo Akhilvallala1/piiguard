@@ -457,6 +457,30 @@ piiguard improve --generations 6 --llm       # coach + gate loop, commits gen-N 
 piiguard report                              # history + held-out before/after
 ```
 
+### The studio: a one-page demo you can hand to anyone
+
+```bash
+export GUARD_PROXY_TOKEN="$(openssl rand -hex 16)"
+piiguard serve                                     # then open http://127.0.0.1:8787/studio
+```
+
+One page, four things to do:
+
+- **Scroll the first screen.** Real held-out attacks pass through the frame: what your app sent, and what the model
+  would see.
+- **Drag through one real learning round** (generation 23): the attacks that leaked, the leak rate per trick, the
+  coach's own reasoning and the rules it wrote, then the gate's verdict.
+- **Type anything** and watch it redacted on this machine as you type, next to what the hand-written rules would have
+  let through. Paste one example of an ID it does not know (`MBR-20231187`) and it builds a rule from its shape,
+  applies it in the page only, and shows the two YAML lines to commit if you want to keep it.
+- **Send it to the model.** Only this step uses the upstream and your key, so it needs the proxy token: open
+  `/studio?token=$GUARD_PROXY_TOKEN`. The reply shows what the model received (placeholders) and what came back.
+
+Redaction in the studio needs no token: it is local compute on what the visitor typed, rules only, with no model
+call. Rules typed into the page are checked by the same ReDoS probe as the coach's and never touch `guard/`.
+Photographs: "Redacted CIA document" (CIA) and "Copyright Card Catalog Drawer" (Michael Holley), both public domain,
+via Wikimedia Commons.
+
 Live demo pieces (the proxy also serves a presentation page at `http://127.0.0.1:8787/demo?token=<GUARD_PROXY_TOKEN>`:
 type any prompt, it goes through the real guard and Crusoe, and the page shows what would have left, what left, and
 what came back; the numbers below it are evidence, the live request is the point):

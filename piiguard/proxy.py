@@ -266,6 +266,9 @@ def create_app(upstream=None, token: Optional[str] = None, guard_dir: Optional[s
         return state["events"]
 
     # ---- demo surface (served by the proxy so the live request goes through the real guard) ----
+    from .studio import mount_studio
+    mount_studio(app, root=Path(ROOT), state=state, auth=auth, upstream=upstream, allow=allow)
+
     @app.get("/demo")
     def demo_page():
         return HTMLResponse((Path(ROOT) / "piiguard" / "static" / "demo.html").read_text())

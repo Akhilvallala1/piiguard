@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>piiguard · the model sees only tokens</title>
+<meta name="description" content="piiguard sits between your app and any AI model. Private values become placeholders on your machine and come back in the reply.">
+<script>document.documentElement.classList.add('js')</script>
+<link rel="preconnect" href="https://api.fontshare.com">
+<link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
+<link href="https://api.fontshare.com/v2/css?f[]=boska@400,500,700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ddd6c6; --surface:#d2cab8; --ink:#2a2a26; --muted:#59574e; --accent:#4f6238; --accent-ink:#fff;
+  --field-1:#3f5a2a; --field-1-ink:#fff;
+  --ui-bg:#e4e3df; --ui-ink:#22221f; --ui-mute:#5c5a52; --ui-line:#d9d3c3; --tok:#3f5a2a; --tok-ink:#fff; --leak:#9a3b26;
+  --font:"Boska",Georgia,serif;
+  --ui:ui-sans-serif,-apple-system,"Segoe UI",system-ui,sans-serif;
+  --code:ui-monospace,SFMono-Regular,Menlo,monospace; /* taste-skill-ignore: only for real code, tokens and regex */
+  --step-small:clamp(.8125rem,.79rem + .1vw,.875rem);
+  --step-body:clamp(1.0625rem,1rem + .25vw,1.1875rem);
+  --step-head:clamp(1.625rem,1rem + 1.8vw,2.5rem);
+  --step-display:clamp(2.6rem,1rem + 3.8vw,4.75rem);
+  --margin:clamp(1rem,2.2vw,2rem); --gutter:clamp(1rem,2vw,2rem); --section:clamp(7.5rem,13vw,13rem);
+  --radius:4px;
+  --ease-out:cubic-bezier(.22,1,.36,1); --ease-io:cubic-bezier(.76,0,.24,1);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:var(--step-body);line-height:1.5;letter-spacing:.005em;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+h1,h2,h3,p,figure,ol,ul,dl,dd,pre{margin:0}
+ol[class],ul[class]{padding:0;list-style:none}
+button,input,textarea{font:inherit;color:inherit}
+button{background:none;border:0;padding:0;cursor:pointer}
+a{color:inherit}
+::selection{background:var(--accent);color:var(--accent-ink)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+h1,h2,h3{font-weight:500;text-wrap:balance}
+p{max-width:62ch;text-wrap:pretty}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.wrap{padding-inline:var(--margin)}
+.grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--gutter)}
+.muted{color:var(--muted)}
+.small{font-size:var(--step-small)}
+.nums{font-variant-numeric:lining-nums tabular-nums}
+
+/* controls */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5em;min-height:2.75rem;padding:0 1.15rem;background:var(--accent);color:var(--accent-ink);border-radius:var(--radius);text-decoration:none;white-space:nowrap;font:500 15px/1 var(--ui);transition:transform 140ms var(--ease-out),background-color 180ms ease}
+.btn:hover{background:#435531}
+.btn:active{transform:scale(.97)}
+.btn[disabled]{opacity:.55;cursor:progress}
+.btn.light{background:var(--bg);color:var(--ink)}
+.btn.light:hover{background:#fff}
+.tlink{text-decoration:underline;text-decoration-color:transparent;text-underline-offset:.22em;text-decoration-thickness:.07em;transition:text-decoration-color 180ms ease,color 180ms ease}
+.tlink:hover{text-decoration-color:currentColor}
+
+/* ---------- nav ---------- */
+.nav{position:absolute;inset:0 0 auto 0;display:flex;align-items:center;justify-content:space-between;padding:22px var(--margin);z-index:5;font:15px/1 var(--ui)}
+.nav .mark{font:500 26px/1 var(--font);letter-spacing:-.02em;text-decoration:none}
+.nav .links{display:flex;align-items:center;gap:28px}
+
+/* ---------- hero: a sentence split by a frame ---------- */
+.hero{position:relative;height:200svh}
+.stage{position:sticky;top:0;height:100svh;overflow:hidden}
+.hero h1{position:absolute;inset:0;margin:0;pointer-events:none;font-size:var(--step-display);line-height:.95;letter-spacing:-.035em;font-weight:500}
+.hero h1 .half{position:absolute;top:50%;transform:translateY(-50%);white-space:nowrap}
+.hero h1 .a{left:var(--margin)}
+.hero h1 .b{right:var(--margin)}
+.reel{position:absolute;left:50%;top:0;width:min(32vw,500px);height:100%;transform:translateX(-50%)}
+.reel-track{position:absolute;inset:0 0 auto 0;will-change:transform}
+.frame{aspect-ratio:16/10;margin-bottom:24px;border-radius:var(--radius);background:var(--ui-bg);color:var(--ui-ink);font:15px/1.45 var(--ui);padding:18px 20px;display:flex;flex-direction:column;gap:10px;overflow:hidden;transition:opacity 500ms var(--ease-out)}
+.frame .kind{font-size:13px;color:var(--ui-mute);display:flex;justify-content:space-between}
+.frame .row{display:grid;grid-template-columns:5.2em 1fr;gap:10px;align-items:baseline}
+.frame .row b{font-weight:500;color:var(--ui-mute);font-size:13px}
+.frame code,.ui code{font:14px/1.5 var(--code);word-break:break-word}
+.frame .row.out code{color:var(--ui-ink)}
+.frame .note{margin-top:auto;font-size:13px;color:var(--ui-mute)}
+.lk{color:var(--leak);text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
+.tk{background:var(--tok);color:var(--tok-ink);border-radius:3px;padding:0 .35em;white-space:nowrap}
+.hero .support{position:absolute;left:var(--margin);bottom:32px;max-width:30ch;font-size:var(--step-body);line-height:1.45}
+.hero .cue{position:absolute;right:var(--margin);bottom:32px;font:15px/1.4 var(--ui);color:var(--muted);text-align:right}
+.hero .cue span{color:var(--ink)}
+
+/* ---------- section rhythm ---------- */
+.sec{padding-block:calc(var(--section) / 2)}
+.statement{font-size:var(--step-display);line-height:.98;letter-spacing:-.035em;font-weight:500}
+
+/* ---------- how it learns: drag through the stages ---------- */
+.stages{display:grid;grid-template-columns:1fr 1fr;min-height:88svh;position:relative}
+.stages .left{background:var(--field-1);color:var(--field-1-ink);padding:56px var(--margin) 150px;display:flex;flex-direction:column;gap:28px}
+.stages .right{background:var(--surface);display:grid;place-items:center;padding:56px var(--margin) 150px}
+.stages h2{font-size:var(--step-display);line-height:.98;letter-spacing:-.035em;max-width:none;min-height:2em}
+.stages .note{max-width:34ch;opacity:.9}
+.swap{transition:opacity 200ms ease}
+.swap.out{opacity:0}
+.ui{background:var(--ui-bg);color:var(--ui-ink);font:15px/1.5 var(--ui);border-radius:var(--radius);padding:22px 24px}
+.ui h3{font:600 13px/1.3 var(--ui);color:var(--ui-mute);margin-bottom:10px;letter-spacing:0}
+.ui .meta{font-size:13px;color:var(--ui-mute)}
+.panel{width:min(100%,480px);min-height:340px;display:flex;flex-direction:column;gap:14px}
+.attack{display:grid;gap:4px;padding-bottom:12px;border-bottom:1px solid var(--ui-line)} /* taste-skill-ignore: inside a data-ui fragment */
+.attack:last-of-type{border-bottom:0}
+.bars{display:grid;gap:9px}
+.bar{display:grid;grid-template-columns:9.5em 1fr 3em;gap:12px;align-items:center;font-size:15px}
+.bar i{display:block;height:12px;background:var(--leak);border-radius:2px;transform-origin:left;transition:transform 600ms var(--ease-out)}
+.bar span:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.diff{background:#ebe6d8;border-radius:3px;padding:12px 14px;font:13px/1.6 var(--code);white-space:pre-wrap;word-break:break-all;color:var(--ui-ink)}
+.diff .add{color:#2f5a1f}
+.verdict{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.verdict div{background:#ebe6d8;border-radius:3px;padding:14px}
+.verdict strong{display:block;font:500 30px/1.1 var(--font);letter-spacing:-.02em;font-variant-numeric:lining-nums}
+.kept{background:var(--tok);color:var(--tok-ink);border-radius:3px;padding:12px 14px;font-size:15px}
+.slider{position:absolute;left:var(--margin);right:var(--margin);bottom:28px;font:16px/1 var(--ui)}
+.slider .track{position:relative}
+.slider .track::before,.slider .fill{content:"";position:absolute;left:0;top:12px;height:8px;pointer-events:none}
+.slider .track::before{right:0;background:rgba(42,42,38,.25)}
+.slider .fill{background:var(--ink);width:calc((100% - 32px) * var(--p,0) + 16px);transition:width 200ms var(--ease-out)}
+.slider input{position:relative;-webkit-appearance:none;appearance:none;width:100%;height:32px;background:transparent;margin:0;cursor:pointer}
+.slider input::-webkit-slider-runnable-track{height:8px;background:transparent}
+.slider input::-moz-range-track{height:8px;background:transparent}
+.slider input::-webkit-slider-thumb{-webkit-appearance:none;width:32px;height:32px;margin-top:-12px;background:var(--accent);border:0;border-radius:var(--radius);transition:transform 140ms var(--ease-out)}
+.slider input::-moz-range-thumb{width:32px;height:32px;background:var(--accent);border:0;border-radius:var(--radius)}
+.slider input:active::-webkit-slider-thumb{transform:scale(1.12)}
+.slider ol{display:grid;grid-template-columns:repeat(4,1fr);margin-top:12px}
+.slider li button{color:rgba(42,42,38,.55);font:15px/1.2 var(--ui);transition:color 180ms ease;text-align:left}
+.slider li:nth-child(2){text-align:center}.slider li:nth-child(3){text-align:center}.slider li:last-child{text-align:right}
+.slider li button[aria-current="step"]{color:var(--ink)}
+.slider li button:hover{color:var(--ink)}
+.slider .over{color:rgba(255,255,255,.6)}
+.slider .over[aria-current="step"],.slider .over:hover{color:#fff}
+
+/* ---------- try it: a headline you can type ---------- */
+.try{min-height:88svh}
+.try .line{display:flex;align-items:baseline;gap:.05em;width:100%}
+.big-input{width:100%;background:transparent;border:0;padding:0;font:500 var(--step-display)/1.1 var(--font);letter-spacing:-.035em;color:var(--ink);caret-color:var(--accent);text-overflow:ellipsis}
+.big-input:focus{outline:none}
+.big-input:focus-visible{outline:none;text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:3px;text-underline-offset:.16em}
+.try .hint{margin-top:10px;font:15px/1.4 var(--ui);color:var(--muted)}
+.try-grid{margin-top:48px;row-gap:40px}
+.answer{grid-column:1/span 7;max-width:640px;display:grid;gap:16px;align-content:start}
+.answer .out{display:block;font:15px/1.6 var(--code);white-space:pre-wrap;word-break:break-word}
+.answer .src{display:block;font:15px/1.6 var(--code);white-space:pre-wrap;word-break:break-word;color:var(--ui-mute)}
+.answer .count{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--ui-mute)}
+.answer .meta code,.answer .meta .tk{font:13px/1.5 var(--code)}
+.answer .count b{color:var(--ui-ink);font-weight:600}
+.answer .reply{display:none;gap:8px}
+.answer .reply.on{display:grid}
+.teach{grid-column:9/span 4;display:grid;gap:14px;align-content:start}
+.teach label{display:grid;gap:4px;font-size:13px;color:var(--ui-mute)}
+.teach input{min-height:2.75rem;padding:.55rem .75rem;border:1px solid var(--ui-line);border-radius:var(--radius);background:#fff;font:15px/1.3 var(--code);color:var(--ui-ink)}
+.teach input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
+.teach .err{color:var(--leak);font-size:15px;min-height:1.2em}
+.rules-added{display:grid;gap:8px}
+.rules-added li{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#ebe6d8;border-radius:3px;padding:8px 10px;font:13px/1.4 var(--code);animation:pop 420ms var(--ease-out)}
+.rules-added li button{font:500 13px/1 var(--ui);color:var(--ui-mute);padding:6px;transition:color 160ms ease}
+.rules-added li button:hover{color:var(--leak)}
+@keyframes pop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.examples{margin-top:40px;display:flex;flex-wrap:wrap;gap:6px 28px;font:15px/1.4 var(--ui)}
+.examples button{color:var(--muted);text-decoration:underline;text-decoration-color:transparent;text-underline-offset:.22em;transition:color 160ms ease,text-decoration-color 160ms ease}
+.examples button:hover{color:var(--ink);text-decoration-color:currentColor}
+.examples span{color:var(--muted)}
+
+/* ---------- history: statement, table pushed right ---------- */
+.hist h2{font-size:var(--step-display);line-height:.98;letter-spacing:-.035em;text-indent:3vw;max-width:16ch}
+.hist .grid{margin-top:96px;align-items:start}
+.hist figure{grid-column:1/span 5;align-self:start;position:sticky;top:12vh}
+.hist .word{grid-column:7/span 1;align-self:start;font:15px/1.3 var(--ui);color:var(--muted);padding-top:4px}
+.hist table{grid-column:8/span 5;border-collapse:collapse;width:100%;font:16px/1.45 var(--ui)}
+.hist td{padding:0 0 26px;vertical-align:top}
+.hist tr.gap td{padding-top:18px}
+.hist td:first-child{color:var(--muted);width:5em;white-space:nowrap}
+.hist td:nth-child(2){padding-right:16px}
+.hist td:last-child{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.hist td small{display:block;color:var(--muted);font-size:13px}
+.hist .rej td{color:var(--muted)}
+
+/* ---------- results: figures inside a sentence ---------- */
+.results{min-height:84svh;display:grid;align-items:center}
+.results .grid{align-items:center;row-gap:32px}
+.results figure{grid-column:1/span 4;position:relative}
+.results figure img{width:100%;height:auto;display:block;filter:grayscale(1) contrast(1.05);mix-blend-mode:multiply}
+.results figcaption{margin-top:10px;font:13px/1.4 var(--ui);color:var(--muted)}
+.results .copy{grid-column:6/span 7;display:grid;gap:24px}
+.results p.stat{max-width:36ch;font-size:clamp(1.5rem,1rem + 1.1vw,2.25rem);line-height:1.22;letter-spacing:-.015em;color:var(--muted);font-weight:400}
+.results p.stat b{color:var(--ink);font-weight:500;font-variant-numeric:lining-nums}
+.results .src{margin-top:0;font:15px/1.5 var(--ui);color:var(--muted);max-width:52ch}
+
+/* ---------- questions ---------- */
+.faq .row{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--gutter);padding-block:40px}
+.faq h2,.faq h3{grid-column:1/span 6;font-size:var(--step-head);line-height:1.1;letter-spacing:-.02em}
+.faq h2{color:var(--muted)}
+.faq-pic{grid-column:8/span 5}
+.faq-pic img{width:100%;height:auto;display:block;filter:grayscale(1) sepia(.18);border-radius:var(--radius)}
+.faq-pic figcaption{margin-top:10px;font:13px/1.4 var(--ui);color:var(--muted);max-width:44ch}
+.faq .row p{grid-column:8/span 5;max-width:40ch;line-height:1.55}
+.faq code{font:.9em/1 var(--code)}
+
+/* ---------- footer: invitation over a cropped name ---------- */
+.foot{background:var(--field-1);color:var(--field-1-ink);min-height:100svh;position:relative;overflow:hidden;display:flex;flex-direction:column;padding:72px var(--margin) 0}
+.foot .top{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--gutter)}
+.foot .inv{grid-column:1/span 7;display:grid;gap:28px;justify-items:start}
+.foot .inv p{font-size:var(--step-display);line-height:.98;letter-spacing:-.035em;font-weight:500;max-width:12ch}
+.foot .links{grid-column:10/span 3;display:grid;gap:10px;align-content:start;font:15px/1.4 var(--ui)}
+.foot .legal{margin-top:auto;display:flex;justify-content:space-between;gap:20px;font:13px/1.4 var(--ui);color:rgba(255,255,255,.82);position:relative;z-index:2}
+.foot .name{font:500 28vw/.8 var(--font);letter-spacing:-.05em;white-space:nowrap;transform:translateY(30%);margin-top:12px;margin-left:-.04em}
+
+/* ---------- motion ---------- */
+@media (prefers-reduced-motion:no-preference){
+  .js [data-reveal]>*{opacity:0;transform:translateY(22px);transition:opacity 700ms var(--ease-out),transform 900ms var(--ease-out);transition-delay:calc(var(--i,0) * 80ms)}
+  .js [data-reveal].in>*{opacity:1;transform:none}
+  .js .hero h1 .half{animation:rise 1000ms var(--ease-out) both}
+  .js .hero h1 .b{animation-delay:120ms}
+  .js .reel{animation:open 1100ms var(--ease-io) 200ms both}
+  .js .hero .support,.js .hero .cue,.js .nav{animation:fade 900ms var(--ease-out) 500ms both}
+  .caret{animation:blink 1.1s steps(1) infinite}
+}
+@keyframes rise{from{opacity:0;transform:translateY(calc(-50% + 30px))}to{opacity:1;transform:translateY(-50%)}}
+@keyframes open{from{clip-path:inset(50% 0 50% 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes blink{50%{opacity:0}}
+.caret{display:inline-block;width:.08em;height:.8em;background:var(--accent);align-self:center;flex:none}
+
+/* ---------- phone ---------- */
+@media (max-width:900px){
+  .nav .links a.tlink{display:none}
+  .nav .links a.tlink.keep{display:inline}
+  .hero{height:auto}
+  .stage{position:relative;height:auto;padding:96px var(--margin) 40px;display:grid;gap:18px}
+  .hero h1{position:static;font-size:9vw;display:grid;gap:18px}
+  .hero h1 .half{position:static;transform:none}
+  .hero h1 .b{text-align:right}
+  .js .hero h1 .half{animation-name:fade}
+  .reel{position:relative;left:auto;top:auto;transform:none;width:100%;height:auto;overflow:hidden}
+  .reel-track{position:relative}
+  .frame{aspect-ratio:4/3;margin-bottom:0}
+  .frame:not(.on){display:none}
+  .hero .support{position:static;max-width:none}
+  .hero .cue{position:static;text-align:left}
+  .hero .reel{order:1}
+  .hero h1{display:contents}
+  .hero h1 .a{order:0}.hero h1 .b{order:2}.hero .support{order:3}.hero .cue{order:4}
+  .stages{grid-template-columns:1fr}
+  .stages .right{order:-1;min-height:46svh;padding:28px 16px}
+  .stages .left{padding:40px var(--margin);order:1}
+  .stages h2{font-size:9vw}
+  .slider{position:static;order:0;padding:20px var(--margin) 8px;background:var(--surface)}
+  .slider .over{color:rgba(42,42,38,.55)}
+  .slider .over[aria-current="step"]{color:var(--ink)}
+  .slider input::-webkit-slider-thumb{width:40px;height:40px;margin-top:-16px}
+  .slider ol{grid-template-columns:1fr 1fr;gap:8px}
+  .slider li,.slider li:nth-child(2),.slider li:nth-child(3),.slider li:last-child{text-align:left}
+  .big-input{font-size:11vw}
+  .answer,.teach{grid-column:1/-1}
+  .examples button{background:var(--surface);min-height:44px;padding:0 14px;border-radius:var(--radius);text-decoration:none;color:var(--ink)}
+  .hist h2{text-indent:0;font-size:9.5vw}
+  .hist figure{grid-column:1/-1;order:2;margin-top:40px}
+  .hist .word{display:none}
+  .hist table{grid-column:1/-1}
+  .results figure,.results .copy{grid-column:1/-1}
+  .results figure{width:70%}
+  .results p.stat{font-size:24px}
+  .faq-pic{grid-column:1/-1}
+  .faq .row{display:grid;grid-template-columns:1fr;gap:12px;padding-block:28px}
+  .faq h2,.faq h3,.faq .row p{grid-column:1/-1;font-size:inherit}
+  .faq h2,.faq h3{font-size:24px}
+  .foot .inv,.foot .links{grid-column:1/-1}
+  .foot .links{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:28px;font-size:15px}
+  .foot .inv p{font-size:11vw}
+  .foot .inv .btn{width:100%}
+  .foot .name{font-size:34vw}
+  .foot .legal{font-size:13px;flex-direction:column;gap:4px}
+}
+</style>
+</head>
+<body>
+<header class="nav">
+  <a class="mark" href="#top">piiguard</a>
+  <nav class="links" aria-label="Sections">
+    <a class="tlink" href="#learn">How it learns</a>
+    <a class="tlink" href="#history">The record</a>
+    <a class="tlink keep" href="#questions">Questions</a>
+    <a class="btn" href="#try">Try it</a>
+  </nav>
+</header>
+
+<main id="top">
+<section class="hero" aria-label="What piiguard does">
+  <div class="stage">
+    <h1><span class="half a">The model sees</span> <span class="half b">only tokens.</span></h1>
+    <div class="reel" aria-label="Real attacks from the held-out set, before and after the guard">
+      <div class="reel-track" id="reel"></div>
+    </div>
+    <p class="support">piiguard sits between your app and any AI model. Private values become placeholders on your machine, and come back in the reply.</p>
+    <p class="cue" aria-live="polite"><span id="reel-n">1</span> of <span id="reel-of">4</span> attacks it never trained on</p>
+  </div>
+</section>
+
+<section class="sec" id="learn" aria-labelledby="stage-title">
+  <div class="stages">
+    <div class="left">
+      <h2 id="stage-title" class="swap">A red team hides the IDs.</h2>
+      <p class="note swap" id="stage-note">This is one real round, generation 23, from the insurance run. Drag the bar to walk through it.</p>
+    </div>
+    <div class="right">
+      <div class="ui panel swap" data-ui id="stage-panel" aria-live="polite"></div>
+    </div>
+    <div class="slider">
+      <label class="sr-only" for="stage-range">Stage of the learning round</label>
+      <div class="track"><span class="fill" id="stage-fill"></span><input id="stage-range" type="range" min="0" max="3" step="1" value="0" aria-valuetext="Attack"></div>
+      <ol class="names" id="stage-names">
+        <li><button type="button" data-s="0" class="over">Attack</button></li>
+        <li><button type="button" data-s="1" class="over">Test</button></li>
+        <li><button type="button" data-s="2">Coach</button></li>
+        <li><button type="button" data-s="3">Gate</button></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="sec wrap try" id="try" aria-labelledby="try-title">
+  <h2 class="sr-only" id="try-title">Try it</h2>
+  <div class="line">
+    <label class="sr-only" for="q">Text an app might send to a model</label>
+    <input class="big-input" id="q" data-ui autocomplete="off" spellcheck="false" value="Member MBR-20231187, claim CLM-2026-0048213">
+    <span class="caret" aria-hidden="true"></span>
+  </div>
+  <p class="hint">Type anything. It is redacted on this machine with the learned rules, and nothing is sent until you press send.</p>
+
+  <div class="grid try-grid">
+    <div class="answer ui" data-ui aria-live="polite">
+      <div><h3>Leaves this machine</h3><code class="out" id="out">…</code></div>
+      <div><h3>With the hand-written rules it started from</h3><code class="src" id="before">…</code></div>
+      <div class="count" id="count"></div>
+      <div class="reply" id="reply"><h3>What came back to your app</h3><code class="out" id="reply-text"></code><div class="meta" id="reply-meta"></div></div>
+      <div><button class="btn" id="send" type="button">Send to the model</button></div>
+    </div>
+
+    <form class="teach ui" data-ui id="teach" autocomplete="off">
+      <h3>Teach it an ID it does not know</h3>
+      <p class="meta">Paste one example. The rule is built from its shape and applied at once, in this page only.</p>
+      <label>Example ID<input id="ex" value="MBR-20231187" spellcheck="false"></label>
+      <label>Name<input id="nm" value="member id" spellcheck="false"></label>
+      <div><button class="btn" type="submit" id="add">Add rule</button></div>
+      <p class="err" id="err" role="alert"></p>
+      <ul class="rules-added" id="added"></ul>
+      <div id="yaml-wrap" hidden><h3>To keep it, add to guard/rules.yaml</h3><pre class="diff" id="yaml"></pre></div>
+    </form>
+  </div>
+
+  <div class="examples" id="examples"><span>Or try one:</span></div>
+</section>
+
+<section class="sec wrap hist" id="history" aria-labelledby="hist-title">
+  <h2 id="hist-title">Every kept change is a commit.</h2>
+  <div class="grid">
+    <figure class="ui" data-ui aria-label="The rules added in generation 23">
+      <h3 id="diff-title">git diff gen-22 gen-23 -- guard/rules.yaml</h3>
+      <pre class="diff" id="diff"></pre>
+      <p class="meta" id="diff-meta" style="margin-top:12px"></p>
+    </figure>
+    <p class="word">Kept</p>
+    <table id="gens" aria-label="Generations the gate kept"></table>
+  </div>
+</section>
+
+<section class="sec wrap results" id="results" aria-labelledby="res-title">
+  <h2 class="sr-only" id="res-title">Results</h2>
+  <div class="grid">
+    <figure>
+      <img src="/studio/assets/redacted-cia-document.jpg" width="1079" height="1400" alt="A declassified government page with most paragraphs blacked out" loading="lazy" decoding="async">
+      <figcaption>Redaction the old way: the whole paragraph goes. piiguard swaps only the value, so the model can still do the work.</figcaption>
+    </figure>
+    <div class="copy">
+      <p class="stat" id="res-text">On <b>500&nbsp;fresh attacks</b>, leaks fell from <b>380</b> to <b>128</b>: <b>252&nbsp;fixed</b>, <b>none&nbsp;broken</b>, <b>3&nbsp;of 1,075</b> normal messages flagged.</p>
+      <p class="src">From the hand-written rules to the learned ones, with no model call. A local GLiNER detector on top cuts leaks to 50 but flags 166 normal messages. Method and limits are in the technical report.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec wrap faq" id="questions" aria-labelledby="faq-title">
+  <div class="row"><h2 id="faq-title">Fair questions</h2><figure class="faq-pic"><img src="/studio/assets/copyright-card-catalog-drawer.jpg" width="1400" height="933" alt="An open card-catalog drawer packed with index cards" loading="lazy" decoding="async"><figcaption>One drawer, one record per card. The rules file works the same way: one readable line per kind of ID.</figcaption></figure></div>
+  <div class="row"><h3>Does it need NemoClaw?</h3><p>No. Anything that speaks the OpenAI chat API can point at it: the OpenAI SDK, LangChain, curl. Run <code>piiguard serve --upstream</code> with any OpenAI, Ollama or vLLM address. NemoClaw is one place it plugs in, as a middleware.</p></div>
+  <div class="row"><h3>Does my text leave my machine?</h3><p>Only the redacted version. The rules run where the proxy runs. The optional model classifier and the learning loop do call a model, and the loop only ever sees synthetic attacks.</p></div>
+  <div class="row"><h3>Does it learn from live traffic?</h3><p>Never. You run <code>piiguard improve</code>. A change ships only if it cuts leaks on validation data, keeps clean text clean and forgets nothing it caught before. Every kept change is a tagged commit you can undo.</p></div>
+  <div class="row"><h3>What does it still miss?</h3><p>About a quarter of fresh attacks. Names need a detector. Tricks it never trained on rarely transfer: spelled-out and reversed numbers fixed none when held out. Unseen formats broke 12 attacks it used to stop.</p></div>
+  <div class="row"><h3>How do I add my own ID?</h3><p>Two lines in <code>guard/rules.yaml</code>, a name and a pattern, or the box above. To catch the disguised versions too, give the red team examples of it and run the loop.</p></div>
+  <div class="row"><h3>What does it cost?</h3><p>Redaction is free and takes about a tenth of a millisecond. Every experiment in the report, learning included, cost under five dollars of model time.</p></div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="top">
+    <div class="inv">
+      <p>Put it in front of your model.</p>
+      <a class="btn light" href="https://github.com/Akhilvallala1/piiguard">Read the code</a>
+    </div>
+    <div class="links">
+      <a class="tlink" href="https://github.com/Akhilvallala1/piiguard">GitHub</a>
+      <a class="tlink" href="https://github.com/Akhilvallala1/piiguard/blob/main/docs/report.md">Technical report</a>
+      <a class="tlink" href="https://github.com/Akhilvallala1/piiguard#using-it-on-your-own-agent">Use it on your agent</a>
+    </div>
+  </div>
+  <div class="legal"><span>Apache-2.0 · built by Akhil Vallala · Photographs: “Redacted CIA document”, CIA, and “Copyright Card Catalog Drawer”, Michael Holley; both public domain, via Wikimedia Commons</span><span id="legal-r">rules v23 · served by this proxy</span></div>
+  <div class="name" aria-hidden="true">piiguard</div>
+</footer>
+
+<script>
+const DATA0 = /*__STUDIO_DATA__*/null;
+(async () => {
+const q = new URLSearchParams(location.search);
+let TOKEN = q.get('token') || '';
+try { if (TOKEN) sessionStorage.setItem('piiguard_token', TOKEN); else TOKEN = sessionStorage.getItem('piiguard_token') || ''; } catch (e) {}
+if (q.has('token')) history.replaceState(null, '', location.pathname + location.hash);
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const show = (s) => esc(s).replace(/\n/g, '↵').replace(/\u00a0/g, '·');
+const tokify = (s) => show(s).replace(/\[PII_[A-Z0-9_]+_\d+\]/g, (m) => `<span class="tk">${m}</span>`);
+const leakify = (text, values) => { let h = show(text); for (const v of values) { const e = show(v); if (e) h = h.split(e).join(`<span class="lk">${e}</span>`); } return h; };
+const pct = (x) => x == null ? '–' : Math.round(x * 100) + '%';
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let D = DATA0;
+if (!D) { try { D = await (await fetch('/studio/data')).json(); } catch (e) { D = null; } }
+
+/* ---------- hero reel ---------- */
+const reel = $('#reel');
+const ex = (D && D.examples || []).filter((e) => ['hex', 'spaced digits', 'fullwidth', 'url param', 'base64'].includes(e.technique)).slice(0, 4);
+const label = { 'hex': 'Phone number, hex-encoded', 'spaced digits': 'Card number, spaced out', 'fullwidth': 'Date of birth, full-width digits', 'url param': 'Date of birth, URL-encoded', 'base64': 'Card number, base64' };
+reel.innerHTML = ex.map((e, i) => `<article class="frame${i ? '' : ' on'}" data-ui>
+  <div class="kind"><span>${esc(label[e.technique] || e.technique)}</span><span>held-out</span></div>
+  <div class="row"><b>Your app</b><code>${leakify(e.text, [e.value])}</code></div>
+  <div class="row out"><b>The model</b><code>${tokify(e.after)}</code></div>
+  <div class="note">Hand-written rules let it through. The learned rules do not.</div>
+</article>`).join('');
+$('#reel-of').textContent = ex.length || 0;
+const frames = [...reel.children];
+const hero = $('.hero');
+let cur = 0;
+function place(p) {
+  if (!frames.length) return;
+  const fh = frames[0].getBoundingClientRect().height + 24;
+  const vh = reel.parentElement.getBoundingClientRect().height;
+  const idx = Math.max(0, Math.min(frames.length - 1, p * (frames.length - 1)));
+  reel.style.transform = `translateY(${vh / 2 - (fh - 24) / 2 - idx * fh}px)`;
+  const n = Math.round(idx);
+  if (n !== cur) { cur = n; $('#reel-n').textContent = n + 1; }
+  frames.forEach((f, i) => { f.style.opacity = Math.max(0.28, 1 - Math.abs(i - idx) * 0.72); f.classList.toggle('on', i === n); });
+}
+const wide = () => matchMedia('(min-width: 901px)').matches;
+function onScroll() {
+  if (!wide()) return;
+  const r = hero.getBoundingClientRect();
+  const p = reduce ? 0 : Math.max(0, Math.min(1, -r.top / (r.height - innerHeight)));
+  place(p);
+}
+addEventListener('scroll', onScroll, { passive: true }); addEventListener('resize', onScroll); onScroll();
+if (!wide() && frames.length > 1 && !reduce) setInterval(() => { frames[cur].classList.remove('on'); cur = (cur + 1) % frames.length; frames[cur].classList.add('on'); $('#reel-n').textContent = cur + 1; }, 3200);
+
+/* ---------- how it learns ---------- */
+const S = D && D.stage;
+const titles = ['A red team hides the IDs.', 'Every leak is counted.', 'A coach writes rules.', 'The gate keeps it, or not.'];
+const notes = [
+  `This is one real round, generation ${S ? S.gen : 23}, from the insurance run. Drag the bar to walk through it.`,
+  `The current rules run on ${S ? S.train_n : 60} training attacks. ${S ? S.train_leaks : 20} still leak, grouped by the trick that beat them.`,
+  'The coach sees the misses and the whole rules file, and returns a complete new file. It never sees validation or held-out data.',
+  'The new file must cut leaks on validation attacks it was not shown, flag no more normal messages, and forget nothing caught before.'];
+function stagePanel(i) {
+  if (!S) return '<p class="meta">Run <code>piiguard improve</code> to record a round.</p>';
+  if (i === 0) return `<h3>${S.train_n} attacks · ${S.train_leaks} leaked past gen-22</h3>` + S.attacks.map((a) => `<div class="attack"><span class="meta">${esc(a.technique)}</span><code>${leakify(a.text.length > 120 ? a.text.slice(0, 118) + '…' : a.text, [a.leaked])}</code></div>`).join('');
+  if (i === 1) { const m = Math.max(...S.by_technique.map((b) => b.rate)); return `<h3>Share of each trick that still leaks</h3><div class="bars">` + S.by_technique.map((b) => `<div class="bar"><span>${esc(b.technique)}</span><i style="transform:scaleX(${(b.rate / m).toFixed(3)})"></i><span>${pct(b.rate)}</span></div>`).join('') + `</div><p class="meta">Training set, before the round. The coach is shown these misses.</p>`; }
+  if (i === 2) return `<h3>The coach's reasoning, in its words</h3><p style="font-size:15px">“${esc(S.rationale)}”</p><h3 style="margin:6px 0 0">Rules it added</h3><pre class="diff">${S.added.map((r) => `<span class="add">+ name: ${esc(r.name)}\n+ pattern: '${esc(r.pattern)}'</span>`).join('\n')}</pre>`;
+  return `<h3>Validation, ${S.val_n} attacks the coach never saw</h3><div class="verdict"><div><span class="meta">Leak rate</span><strong class="nums">${pct(S.val_before)} → ${pct(S.val_after)}</strong></div><div><span class="meta">Normal text flagged</span><strong class="nums">${pct(S.fp_before)} → ${pct(S.fp_after)}</strong></div></div><div class="kept">Kept. Committed and tagged gen-${S.gen}. Undo is one git command.</div>${S.next ? `<p class="meta">The next round, gen ${S.next.gen}, was ${esc(S.next.reason.replace('rejected: ', 'rejected: '))}.</p>` : ''}`;
+}
+const range = $('#stage-range'), names = [...document.querySelectorAll('#stage-names button')];
+let sTimer;
+function setStage(i, animate = true) {
+  range.value = i; $('#stage-fill').style.setProperty('--p', i / 3);
+  range.setAttribute('aria-valuetext', names[i].textContent);
+  names.forEach((b, k) => { if (k === i) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current'); });
+  const els = [$('#stage-title'), $('#stage-note'), $('#stage-panel')];
+  const fill = () => { els[0].textContent = titles[i]; els[1].textContent = notes[i]; els[2].innerHTML = stagePanel(i); els.forEach((e) => e.classList.remove('out')); };
+  if (!animate || reduce) return fill();
+  els.forEach((e) => e.classList.add('out')); clearTimeout(sTimer); sTimer = setTimeout(fill, 200);
+}
+range.addEventListener('input', () => setStage(+range.value));
+names.forEach((b) => b.addEventListener('click', () => setStage(+b.dataset.s)));
+setStage(0, false);
+
+/* ---------- try it ---------- */
+const RULES = [];
+const input = $('#q');
+let tq, seq = 0;
+async function redact() {
+  const my = ++seq;
+  let r;
+  try { r = await fetch('/studio/redact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: input.value, rules: RULES }) }); } catch (e) { $('#out').textContent = 'The proxy is not reachable. Start it with piiguard serve.'; return; }
+  const d = await r.json();
+  if (my !== seq) return;
+  if (!r.ok) { $('#err').textContent = d.detail || 'That rule could not be used.'; RULES.pop(); renderRules(); return redact(); }
+  $('#out').innerHTML = tokify(d.after.text);
+  const vals = d.after.tokens.map((t) => t.value);
+  const leaked = d.before ? vals.filter((v) => d.before.text.includes(v)) : [];
+  $('#before').innerHTML = d.before ? leakify(d.before.text, leaked) : 'Not a git checkout, so the starting rules are not available.';
+  $('#count').innerHTML = `<span><b>${d.after.tokens.length}</b> value${d.after.tokens.length === 1 ? '' : 's'} held back</span><span><b>${leaked.length}</b> would leak with the starting rules</span><span><b>${d.rules}</b> rules · ${d.ms} ms · nothing sent</span>`;
+  $('#yaml-wrap').hidden = !d.snippet; $('#yaml').textContent = d.snippet;
+  $('#reply').classList.remove('on');
+}
+input.addEventListener('input', () => { clearTimeout(tq); tq = setTimeout(redact, 120); });
+function renderRules() {
+  $('#added').innerHTML = RULES.map((r, i) => `<li><code>${esc(r.name)}<br><span style="color:var(--ui-mute)">${esc(r.pattern)}</span></code><button type="button" data-i="${i}" aria-label="Remove ${esc(r.name)}">Remove</button></li>`).join('');
+  $('#added').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { RULES.splice(+b.dataset.i, 1); renderRules(); redact(); }));
+}
+$('#teach').addEventListener('submit', async (e) => {
+  e.preventDefault(); $('#err').textContent = '';
+  const btn = $('#add'); btn.disabled = true;
+  try {
+    const r = await fetch('/studio/suggest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ example: $('#ex').value, name: $('#nm').value }) });
+    const d = await r.json();
+    if (!r.ok) { $('#err').textContent = d.detail || 'Could not build a rule from that.'; return; }
+    const at = RULES.findIndex((x) => x.name === d.name);
+    if (at >= 0) RULES.splice(at, 1);
+    if (RULES.length >= 6) RULES.shift();
+    RULES.push({ name: d.name, pattern: d.pattern }); renderRules(); await redact();
+  } finally { btn.disabled = false; }
+});
+$('#send').addEventListener('click', async () => {
+  const b = $('#send'); b.disabled = true; b.textContent = 'Sending…';
+  try {
+    const r = await fetch('/studio/send', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN }, body: JSON.stringify({ text: input.value, rules: RULES }) });
+    $('#reply').classList.add('on');
+    if (r.status === 401) { $('#reply-text').textContent = 'Sending uses your model key, so it needs the proxy token. Open this page as /studio?token=YOUR_GUARD_PROXY_TOKEN.'; $('#reply-meta').textContent = ''; return; }
+    const d = await r.json();
+    if (d.error) { $('#reply-text').textContent = d.error; $('#reply-meta').textContent = ''; return; }
+    $('#reply-text').textContent = d.reply;
+    $('#reply-meta').innerHTML = `The model (${esc(d.model || '')}) answered: <code>${tokify(d.reply_raw)}</code>`;
+  } catch (e) { $('#reply').classList.add('on'); $('#reply-text').textContent = 'The proxy is not reachable.'; }
+  finally { b.disabled = false; b.textContent = 'Send to the model'; }
+});
+const tries = [
+  ['A member ID it does not know', 'Member MBR-20231187, claim CLM-2026-0048213'],
+  ...(D && D.examples || []).filter((e) => ['hex', 'spaced digits', 'base64', 'no separators'].includes(e.technique)).map((e) => [label[e.technique] || e.technique, e.text]),
+  ['A normal message', 'Order #48213 shipped on 2026-10-17 and should arrive in 3-5 business days.']];
+$('#examples').insertAdjacentHTML('beforeend', tries.map(([l], i) => `<button type="button" data-k="${i}">${esc(l)}</button>`).join(''));
+$('#examples').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { input.value = tries[+b.dataset.k][1]; redact(); input.focus(); }));
+redact();
+
+/* ---------- the record ---------- */
+const G = (D && D.generations) || [];
+$('#gens').innerHTML = G.map((g, i) => `<tr class="${i === 3 || i === 4 ? 'gap' : ''}"><td>gen-${g.gen}</td><td>${g.gen === 0 ? 'Written by hand: ' + esc(g.added.join(', ').replace(/_/g, ' ')) : esc(g.added.slice(0, 3).join(', ').replace(/_/g, ' ')) + (g.added.length > 3 ? ` <small>and ${g.added.length - 3} more</small>` : '')}<small>${g.rules} rules</small></td><td>${g.val_before == null ? '' : pct(g.val_before) + ' → ' + pct(g.val_after)}</td></tr>`).join('')
+  + (D ? `<tr class="rej gap"><td>${D.rejected}</td><td>rounds the gate turned down<small>logged in runs/history.jsonl, never committed</small></td><td></td></tr>` : '');
+if (S) {
+  $('#diff').innerHTML = S.added.map((r) => `<span class="add">+ - 'name': '${esc(r.name)}'\n+   'pattern': '${esc(r.pattern)}'</span>`).join('\n');
+  $('#diff-meta').textContent = `Validation leak ${pct(S.val_before)} → ${pct(S.val_after)}. Normal text flagged ${pct(S.fp_before)} → ${pct(S.fp_after)}. Kept.`;
+}
+if (D && D.heldout && D.heldout.n) {
+  const h = D.heldout, n = (x) => x.toLocaleString('en-US');
+  $('#res-text').innerHTML = `On <b>${n(h.n)}&nbsp;fresh attacks</b>, leaks fell from <b>${n(h.gen0_leaks)}</b> to <b>${n(h.learned_leaks)}</b>: <b>${n(h.fixed)}&nbsp;fixed</b>, <b>${h.broken ? n(h.broken) + '&nbsp;broken' : 'none&nbsp;broken'}</b>, <b>${n(h.learned_fps)}&nbsp;of ${n(h.n_clean)}</b> normal messages flagged.`;
+}
+if (D) $('#legal-r').textContent = `rules v${D.rules.version} · ${D.rules.count} rules · served by this proxy`;
+
+/* ---------- entrances ---------- */
+const groups = [document.querySelector('#learn .left'), document.querySelector('#learn .right'), document.querySelector('#try .try-grid'), document.querySelector('#examples'),
+  document.querySelector('#history'), document.querySelector('#history .grid'), document.querySelector('#results .grid'), ...document.querySelectorAll('#questions .row'), document.querySelector('.foot .top')];
+groups.forEach((g) => { if (!g) return; g.setAttribute('data-reveal', ''); [...g.children].forEach((c, i) => c.style.setProperty('--i', i)); });
+if ('IntersectionObserver' in window) {
+  const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -10% 0px', threshold: 0.08 });
+  groups.forEach((g) => g && io.observe(g));
+  addEventListener('load', () => setTimeout(() => groups.forEach((g) => { if (!g) return; const r = g.getBoundingClientRect(); if (r.top < innerHeight && r.bottom > 0) g.classList.add('in'); }), 2500));
+} else groups.forEach((g) => g && g.classList.add('in'));
+})();
+</script>
+</body>
+</html>
